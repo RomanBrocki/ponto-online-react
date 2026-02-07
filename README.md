@@ -218,6 +218,23 @@ Já configurado:
 - geração de `sw.js` no build
 - ícone em `public/pwa-icon.svg`
 - `start_url` baseado em `VITE_BASE_PATH`
+- `scope` baseado em `VITE_BASE_PATH`
+- ícones mobile em PNG + ícone maskable
+
+### 12.1 Ícones mobile/PWA
+
+Arquivos utilizados:
+
+- `public/icons/icon-192.png` (Android/instalação)
+- `public/icons/icon-512.png` (Android/instalação)
+- `public/icons/icon-maskable-512.png` (Android maskable)
+- `public/icons/apple-touch-icon-180.png` (iOS)
+- `public/pwa-icon.svg` (fallback vetorial)
+
+Integração já aplicada:
+
+- `vite.config.ts` (`manifest.icons` + `includeAssets`)
+- `index.html` (`favicon`, `apple-touch-icon`, `theme-color` e metas iOS)
 
 ## 13. Deploy no GitHub Pages
 

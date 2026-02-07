@@ -17,7 +17,14 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["vite.svg", "pwa-icon.svg"],
+      includeAssets: [
+        "vite.svg",
+        "pwa-icon.svg",
+        "icons/icon-192.png",
+        "icons/icon-512.png",
+        "icons/icon-maskable-512.png",
+        "icons/apple-touch-icon-180.png",
+      ],
       manifest: {
         name: "Ponto Online",
         short_name: "Ponto",
@@ -27,7 +34,26 @@ export default defineConfig({
         display: "standalone",
         orientation: "portrait",
         start_url: basePath,
+        scope: basePath,
         icons: [
+          {
+            src: `${basePath}icons/icon-192.png`,
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "any",
+          },
+          {
+            src: `${basePath}icons/icon-512.png`,
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any",
+          },
+          {
+            src: `${basePath}icons/icon-maskable-512.png`,
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable",
+          },
           {
             src: `${basePath}pwa-icon.svg`,
             sizes: "512x512",
