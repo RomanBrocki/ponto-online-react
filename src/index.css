@@ -1,68 +1,414 @@
+* {
+  box-sizing: border-box;
+}
+
+html {
+  width: 100%;
+  min-height: 100%;
+  background: var(--bg);
+}
+
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
   min-width: 320px;
-  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  overflow-x: hidden;
+  background: var(--bg);
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+#root,
+.app-root {
+  min-height: 100dvh;
+  width: 100%;
+  max-width: 100%;
+  background: var(--bg);
+}
+
+.app-root {
+  position: relative;
+  isolation: isolate;
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(rgba(14, 18, 24, 0.82), rgba(14, 18, 24, 0.88)),
+    url("https://images.unsplash.com/photo-1521791055366-0d553872125f?auto=format&fit=crop&w=1600&q=80");
+  background-size: cover;
+  background-position: center;
+  background-attachment: scroll;
+  background-repeat: no-repeat;
+  color: var(--text);
+}
+
+.page-center {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.page {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem;
+}
+
+.auth-panel {
+  width: min(420px, 100%);
+}
+
+.page-header {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.form-grid {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.report-grid {
+  grid-template-columns: 1fr;
+}
+
+.punch-grid {
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.punch-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem;
+  background-color: var(--chip);
+  background-size: cover;
+  background-position: center;
+  background-blend-mode: multiply;
+  opacity: 0.7;
+}
+
+.punch-card.stage-entrada {
+  background-image:
+    linear-gradient(rgba(20, 25, 35, 0.75), rgba(20, 25, 35, 0.75)),
+    url("https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=600&q=80");
+}
+
+.punch-card.stage-saida_almoco {
+  background-image:
+    linear-gradient(rgba(20, 25, 35, 0.75), rgba(20, 25, 35, 0.75)),
+    url("https://images.unsplash.com/photo-1556911220-bda9f7f7597e?auto=format&fit=crop&w=600&q=80");
+}
+
+.punch-card.stage-volta_almoco {
+  background-image:
+    linear-gradient(rgba(20, 25, 35, 0.75), rgba(20, 25, 35, 0.75)),
+    url("https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=600&q=80");
+}
+
+.punch-card.stage-saida_final {
+  background-image:
+    linear-gradient(rgba(20, 25, 35, 0.75), rgba(20, 25, 35, 0.75)),
+    url("https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=600&q=80");
+}
+
+.punch-card.is-active,
+.punch-card.is-done {
+  opacity: 1;
+  border-color: var(--primary);
+  box-shadow: var(--glow);
+}
+
+.punch-card.is-locked {
+  opacity: 0.45;
+}
+
+.punch-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.punch-time {
+  font-size: 0.86rem;
+  color: var(--muted);
+}
+
+label {
+  font-size: 0.95rem;
+}
+
+input,
+select,
+button,
+.link {
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--chip);
+  color: var(--text);
+  padding: 0.65rem 0.75rem;
+  font: inherit;
+  font-size: 16px;
 }
 
 button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
+  background: var(--primary);
+  color: #0b1117;
+  border: none;
+  font-weight: 600;
   cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  touch-action: manipulation;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
+button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.button-danger {
+  background: var(--danger);
+  color: #ffffff;
+}
+
+.button-muted {
+  background: var(--chip);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.button-full {
+  width: 100%;
+}
+
+.confirm-panel {
+  margin-top: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--chip);
+  padding: 0.75rem;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.page-empregada .punch-grid {
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+}
+
+.page-empregada {
+  overflow-x: hidden;
+}
+
+.page-empregada .confirm-actions {
+  flex-direction: column-reverse;
+}
+
+.page-empregada .confirm-actions button {
+  width: 100%;
+}
+
+.link {
+  display: inline-block;
+  text-decoration: none;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.error-text {
+  margin-top: 0.75rem;
+  color: var(--danger);
+}
+
+.success-text {
+  margin-top: 0.75rem;
+  color: var(--primary);
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+.report-table-wrap {
+  margin-top: 0.75rem;
+  overflow-x: auto;
+}
+
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.report-table th,
+.report-table td {
+  border: 1px solid var(--border);
+  padding: 0.45rem 0.5rem;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.56);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  z-index: 1000;
+}
+
+.modal-panel {
+  width: min(640px, 100%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem;
+  display: grid;
+  gap: 0.75rem;
+  max-height: min(85vh, 720px);
+  overflow: auto;
+}
+
+.modal-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+@media (max-width: 760px) {
+  .app-root {
+    background-position: center center;
+    background-size: cover;
   }
-  a:hover {
-    color: #747bff;
+
+  .page {
+    padding: 0.75rem;
+    gap: 0.75rem;
   }
-  button {
-    background-color: #f9f9f9;
+
+  .panel {
+    padding: 0.75rem;
+  }
+
+  .form-grid {
+    gap: 0.4rem;
+  }
+
+  .report-table {
+    font-size: 0.85rem;
+  }
+
+  .report-table th,
+  .report-table td {
+    padding: 0.35rem 0.4rem;
+  }
+
+  .modal-backdrop {
+    place-items: center;
+    padding: 0.75rem;
+  }
+
+  .modal-panel {
+    width: min(560px, 100%);
+    border-radius: 12px;
+    max-height: 86vh;
+  }
+}
+
+@media (min-width: 901px) {
+  .page-empregada .punch-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .page-empregada .confirm-actions {
+    flex-direction: row;
+    justify-content: flex-end;
+  }
+
+  .page-empregada .confirm-actions button {
+    width: auto;
+  }
+}
+
+@media (max-width: 1100px) {
+  .admin-table-wrap {
+    overflow: visible;
+  }
+
+  .stack-mobile thead {
+    display: none;
+  }
+
+  .stack-mobile tbody {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .stack-mobile tr {
+    display: grid;
+    gap: 0.35rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.55rem;
+    background: var(--chip);
+  }
+
+  .stack-mobile td {
+    display: grid;
+    grid-template-columns: 8.75rem 1fr;
+    gap: 0.4rem;
+    white-space: normal;
+    border: 0;
+    padding: 0.2rem 0;
+  }
+
+  .stack-mobile td::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  .stack-mobile td input,
+  .stack-mobile td select,
+  .stack-mobile td button {
+    width: 100%;
+    min-width: 0;
   }
 }

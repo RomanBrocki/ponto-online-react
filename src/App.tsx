@@ -1,147 +1,86 @@
-import { useEffect, useState } from "react";
-import { supabase } from "./lib/supabase";
+import {
+  BrowserRouter,
+  Navigate,
+  Outlet,
+  Route,
+  Routes,
+} from "react-router-dom";
+import { AuthProvider, useAuth, type Role } from "./auth/AuthContext";
+import AdminPage from "./pages/AdminPage";
+import EmpregadaPage from "./pages/EmpregadaPage";
+import LoadingPage from "./pages/LoadingPage";
+import LoginPage from "./pages/LoginPage";
+import NotFoundPage from "./pages/NotFoundPage";
 
-type Role = "admin" | "empregada" | null;
+function getRolePath(role: Role) {
+  if (role === "admin") return "/admin";
+  if (role === "empregada") return "/empregada";
+  return "/login";
+}
 
-export default function App() {
-  const [email, setEmail] = useState("");
-  const [senha, setSenha] = useState("");
+type ProtectedRouteProps = {
+  allowedRoles?: Array<Exclude<Role, null>>;
+};
 
-  const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
+function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
+  const { user, role, loading } = useAuth();
 
-  const [userId, setUserId] = useState<string | null>(null);
-  const [role, setRole] = useState<Role>(null);
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
-  async function carregarRole(uid: string) {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", uid)
-      .maybeSingle();
-
-    if (error) {
-      setMsg(`Erro ao ler profiles.role: ${error.message}`);
-      setRole(null);
-      return;
+  if (!role) {
+    if (loading) {
+      return <LoadingPage />;
     }
-
-    setRole((data?.role as Role) ?? null);
+    return <Navigate to="/login" replace />;
   }
 
-  async function login() {
-    setLoading(true);
-    setMsg(null);
-
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password: senha,
-    });
-
-    if (error) {
-      setMsg(`Login falhou: ${error.message}`);
-      setLoading(false);
-      return;
-    }
-
-    const uid = data.user?.id ?? null;
-    setUserId(uid);
-
-    if (uid) await carregarRole(uid);
-
-    setLoading(false);
+  if (allowedRoles && !allowedRoles.includes(role)) {
+    return <Navigate to={getRolePath(role)} replace />;
   }
 
-  async function logout() {
-    setLoading(true);
-    setMsg(null);
-    await supabase.auth.signOut();
-    setUserId(null);
-    setRole(null);
-    setLoading(false);
+  return <Outlet />;
+}
+
+function RootRedirect() {
+  const { user, role, loading } = useAuth();
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
   }
 
-  useEffect(() => {
-    // Carrega sessão existente (se já estiver logado)
-    supabase.auth.getSession().then(({ data }) => {
-      const uid = data.session?.user?.id ?? null;
-      setUserId(uid);
-      if (uid) carregarRole(uid);
-    });
+  if (loading) {
+    return <LoadingPage />;
+  }
 
-    // Atualiza ao logar/deslogar
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      const uid = session?.user?.id ?? null;
-      setUserId(uid);
-      if (uid) carregarRole(uid);
-      else setRole(null);
-    });
+  return <Navigate to={getRolePath(role)} replace />;
+}
 
-    return () => {
-      sub.subscription.unsubscribe();
-    };
-  }, []);
-
+function AppRoutes() {
   return (
-    <div style={{ maxWidth: 520, margin: "40px auto", fontFamily: "system-ui" }}>
-      <h2>Ponto Online – Teste de Auth</h2>
-
-      {!userId ? (
-        <>
-          <div style={{ display: "grid", gap: 10 }}>
-            <label>
-              Email
-              <input
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                style={{ width: "100%", padding: 8, marginTop: 4 }}
-                placeholder="seu@email.com"
-              />
-            </label>
-
-            <label>
-              Senha
-              <input
-                type="password"
-                value={senha}
-                onChange={(e) => setSenha(e.target.value)}
-                style={{ width: "100%", padding: 8, marginTop: 4 }}
-                placeholder="********"
-              />
-            </label>
-
-            <button
-              onClick={login}
-              disabled={loading || !email || !senha}
-              style={{ padding: 10, cursor: "pointer" }}
-            >
-              {loading ? "Entrando..." : "Entrar"}
-            </button>
-          </div>
-
-          {msg && <p style={{ marginTop: 16 }}>{msg}</p>}
-        </>
-      ) : (
-        <>
-          <p>
-            <b>User ID:</b> {userId}
-          </p>
-          <p>
-            <b>Role:</b> {role ?? "(não carregou)"}
-          </p>
-
-          <button
-            onClick={logout}
-            disabled={loading}
-            style={{ padding: 10, cursor: "pointer" }}
-          >
-            {loading ? "Saindo..." : "Sair"}
-          </button>
-
-          {msg && <p style={{ marginTop: 16 }}>{msg}</p>}
-        </>
-      )}
-    </div>
+    <Routes>
+      <Route path="/" element={<RootRedirect />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
+        <Route path="/admin" element={<AdminPage />} />
+      </Route>
+      <Route element={<ProtectedRoute allowedRoles={["empregada"]} />}>
+        <Route path="/empregada" element={<EmpregadaPage />} />
+      </Route>
+      <Route path="*" element={<NotFoundPage />} />
+    </Routes>
   );
 }
 
+export default function App() {
+  return (
+    <AuthProvider>
+      <div className="theme-gunmetal app-root">
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </div>
+    </AuthProvider>
+  );
+}
