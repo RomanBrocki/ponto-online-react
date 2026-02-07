@@ -77,7 +77,7 @@ export default function App() {
   return (
     <AuthProvider>
       <div className="theme-gunmetal app-root">
-        <BrowserRouter>
+        <BrowserRouter basename={import.meta.env.BASE_URL}>
           <AppRoutes />
         </BrowserRouter>
       </div>

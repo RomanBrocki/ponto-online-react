@@ -1,227 +1,277 @@
-﻿# Ponto Online v2
+﻿# Ponto React (Ponto Online v2)
 
-Aplicação web (frontend-only) para controle de ponto com React + TypeScript e Supabase (Auth + RLS), com acesso por perfil (`admin` e `empregada`), validação mensal e exportação de relatório em PDF.
+Aplicação web **frontend-only** para controle de ponto eletrônico, construída com React + TypeScript e Supabase (Auth + RLS), com deploy em GitHub Pages e suporte a PWA.
 
-## Stack
+## 1. Objetivo
 
-- React 19 + TypeScript
+Este projeto resolve o controle de jornada com dois perfis:
+
+- `admin` (empregador)
+- `empregada` (funcionário)
+
+Sem servidor próprio: toda autenticação e persistência usam Supabase com políticas RLS.
+
+## 2. Regras de negócio (implementadas)
+
+### `empregada`
+
+- Registra **apenas o próprio ponto**.
+- Sequência obrigatória do dia:
+  1. `entrada`
+  2. `saida_almoco`
+  3. `volta_almoco`
+  4. `saida_final`
+- Vê histórico mensal dos dias anteriores.
+
+### `admin`
+
+- Vê e edita registros de empregadas no mês.
+- Filtros no modo de edição na ordem:
+  1. Empregada
+  2. Ano
+  3. Mês
+  4. Dia (opcional)
+- Se selecionar `Dia`, mostra apenas aquele dia; se não, mostra o mês inteiro.
+- Pode definir observações de validação (`Feriado`, `Dispensa Justificada`, `Falta`).
+- Gera relatório mensal com prévia e PDF.
+
+## 3. Segurança e arquitetura
+
+- App frontend-only.
+- Sem `service_role` e sem chaves secretas no cliente.
+- Somente `VITE_SUPABASE_ANON_KEY`.
+- Role lida de `public.profiles.role` após login.
+- Rotas protegidas por role no frontend.
+- A proteção de dados é garantida pelo Supabase RLS.
+
+## 4. Stack
+
+- React 19
+- TypeScript
 - Vite
 - react-router-dom
 - @supabase/supabase-js
-- jsPDF + jspdf-autotable (exportação PDF)
-- vite-plugin-pwa (PWA)
+- jsPDF + jspdf-autotable
+- vite-plugin-pwa
 
-## Requisitos
+## 5. Pré-requisitos
 
 - Node.js 20+
-- NPM
-- Projeto Supabase com Auth (email/senha) ativo
+- npm
+- Projeto Supabase já configurado (Auth email/senha + tabelas + RLS)
 
-## Variáveis de ambiente
+## 6. Variáveis de ambiente
 
-Crie `.env` na raiz:
-
-```env
-VITE_SUPABASE_URL=...
-VITE_SUPABASE_ANON_KEY=...
-```
-
-Opcional (diagnóstico):
+Crie um arquivo `.env` na raiz:
 
 ```env
-VITE_SUPABASE_RECORDS_TABLE=ponto_online
+VITE_SUPABASE_URL=https://SEU-PROJETO.supabase.co
+VITE_SUPABASE_ANON_KEY=SUA_CHAVE_PUBLICA
 ```
 
-## Scripts
+Opcional:
+
+```env
+VITE_BASE_PATH=/nome-do-repositorio/
+```
+
+Observação:
+- Em desenvolvimento local, `VITE_BASE_PATH` pode ser omitido.
+- No GitHub Pages, o workflow já define esse valor automaticamente.
+
+## 7. Rodando localmente
 
 ```bash
 npm install
 npm run dev
+```
+
+Acesse: `http://localhost:5173`
+
+Build de produção local:
+
+```bash
 npm run build
 npm run preview
 ```
 
-## Banco de dados (fonte de verdade)
+## 8. Fluxo funcional por tela
 
-### `public.ponto_online`
+### Login (`/login`)
 
-```sql
-create table public.ponto_online (
-  id uuid not null default gen_random_uuid (),
-  data date not null,
-  empregado text not null,
-  entrada time without time zone null,
-  saida_almoco time without time zone null,
-  volta_almoco time without time zone null,
-  saida_final time without time zone null,
-  observacao text null,
-  inserido_em timestamp with time zone null,
-  user_id uuid null,
-  constraint ponto_online_pkey primary key (id),
-  constraint ponto_online_user_id_fkey foreign KEY (user_id) references auth.users (id)
-) TABLESPACE pg_default;
-```
+Possui 3 modos:
 
-### `public.profiles`
+1. `Entrar`
+2. `Alterar senha` (email + senha antiga + nova + confirmação)
+3. `Esqueci minha senha` (envio de link de recuperação)
 
-```sql
-create table public.profiles (
-  id uuid not null,
-  role text not null,
-  nome text null,
-  criado_em timestamp with time zone not null default now(),
-  constraint profiles_pkey primary key (id),
-  constraint profiles_id_fkey foreign KEY (id) references auth.users (id) on delete CASCADE,
-  constraint profiles_role_check check (
-    (
-      role = any (array['admin'::text, 'empregada'::text])
-    )
-  )
-) TABLESPACE pg_default;
-```
+### Painel Empregada (`/empregada`)
 
-## Segurança e limites do projeto
+- Bloco de marcação do dia com cartões de status.
+- Botão principal executa a próxima etapa válida da sequência.
+- Histórico do mês inicia colapsado e pode ser expandido.
 
-- Não usar `service_role` no frontend.
-- Não alterar schema, RLS ou policies via app.
-- Não adicionar backend próprio.
-- Usar apenas chave pública/anon do Supabase.
+### Painel Admin (`/admin`)
 
-## Rotas e autenticação
+Dois modos:
 
-- `/login`: público
-- `/admin`: protegido para `admin`
-- `/empregada`: protegido para `empregada`
-- `*`: not found
+1. `Editar/Consultar registros`
+   - filtros: Empregada > Ano > Mês > Dia
+   - lista inicia colapsada
+   - edição por linha + salvar + apagar
+2. `Relatórios`
+   - filtros: Empregada > Ano > Mês
+   - validação de pendências antes de gerar PDF
+   - prévia colapsável
 
-Fluxo:
-- não autenticado -> `/login`
-- autenticado sem role válida -> `/login`
-- role incompatível -> redireciona para rota correta da role
-
-## Funcionalidades implementadas
-
-### Empregada
-
-- Saudação com nome (`profiles.nome`, fallback email)
-- Marcação sequencial diária:
-  - `entrada -> saida_almoco -> volta_almoco -> saida_final`
-- Confirmação antes de registrar
-- Feedback de sucesso/erro após ação
-- Histórico por ano/mês com opções apenas de meses existentes
-- Logout no final da página
-
-### Admin
-
-- Dois modos de uso:
-  - `Editar/Consultar registros`
-  - `Gerar relatório`
-- Edição de horários e observação
-- Exclusão de linha
-- Listagens colapsáveis:
-  - listagem de edição
-  - prévia do relatório
-- Ordenação de registros por data mais recente primeiro
-- Inclusão visual de fins de semana sem registro (não persiste no banco)
-- Validação de pendências antes da geração do relatório
-- Diagnóstico de leitura do banco
-
-### Relatório e PDF
-
-- Validação mensal com regras de status por dia
-- Resumo mensal:
-  - faltas
-  - feriados
-  - dispensas justificadas
-  - horas extras
-  - horas negativas
-  - balanço final
-- Exportação em PDF (A4 retrato) com:
-  - cabeçalho
-  - grade mensal
-  - resumo
-
-## PWA
-
-Configuração via `vite-plugin-pwa` em `vite.config.ts`:
-- manifesto com nome, tema, display standalone e ícone
-- service worker com atualização automática
-
-Arquivo de ícone:
-- `public/pwa-icon.svg`
-
-## Estrutura de arquivos
+## 9. Estrutura de arquivos (árvore completa)
 
 ```text
 ponto-react/
-|-- AGENTS.md
-|-- README.md
-|-- index.html
-|-- package.json
-|-- package-lock.json
-|-- vite.config.ts
-|-- eslint.config.js
-|-- tsconfig.json
-|-- tsconfig.app.json
-|-- tsconfig.node.json
-|-- .env
-|-- .gitignore
+|-- .github/
+|   `-- workflows/
+|       `-- deploy-pages.yml            # pipeline de build/deploy no GitHub Pages
 |-- public/
-|   |-- pwa-icon.svg
-|   |-- vite.svg
+|   |-- pwa-icon.svg                    # ícone PWA
+|   `-- vite.svg
 |-- src/
-|   |-- App.css
-|   |-- App.tsx
-|   |-- index.css
-|   |-- main.tsx
 |   |-- assets/
 |   |   `-- react.svg
 |   |-- auth/
-|   |   `-- AuthContext.tsx
+|   |   `-- AuthContext.tsx             # sessão, role e ações de auth
 |   |-- components/
-|   |   |-- DbProbePanel.tsx
-|   |   `-- Modal.tsx
+|   |   |-- DbProbePanel.tsx            # painel de diagnóstico de tabela/permissão
+|   |   `-- Modal.tsx                   # modal de confirmação/mensagem
 |   |-- lib/
-|   |   |-- pdfReport.ts
-|   |   |-- pontoOnline.ts
-|   |   |-- recordsProbe.ts
-|   |   |-- reportRules.ts
-|   |   `-- supabase.ts
+|   |   |-- pdfReport.ts                # geração PDF mensal
+|   |   |-- pontoOnline.ts              # queries e mutações de ponto/profiles
+|   |   |-- recordsProbe.ts             # utilitário de diagnóstico
+|   |   |-- reportRules.ts              # validação mensal e cálculos de saldo
+|   |   `-- supabase.ts                 # client Supabase + client isolado
 |   |-- pages/
-|   |   |-- AdminPage.tsx
-|   |   |-- EmpregadaPage.tsx
+|   |   |-- AdminPage.tsx               # painel do empregador
+|   |   |-- EmpregadaPage.tsx           # painel do funcionário
 |   |   |-- LoadingPage.tsx
 |   |   |-- LoginPage.tsx
 |   |   `-- NotFoundPage.tsx
-|   `-- styles/
-|       `-- theme.css
-|-- dist/ (gerado no build)
-`-- node_modules/ (dependências)
+|   |-- styles/
+|   |   `-- theme.css                   # variáveis de tema (.theme-gunmetal)
+|   |-- App.css
+|   |-- App.tsx                         # rotas + guards por role
+|   |-- index.css
+|   `-- main.tsx
+|-- AGENTS.md
+|-- eslint.config.js
+|-- index.html
+|-- package.json
+|-- package-lock.json
+|-- README.md
+|-- tsconfig.app.json
+|-- tsconfig.json
+|-- tsconfig.node.json
+`-- vite.config.ts                      # base path + configuração PWA
 ```
 
-## O que cada parte faz
+## 10. Scripts
 
-- `src/main.tsx`: bootstrap React + import global de estilos
-- `src/App.tsx`: provider de auth + roteamento e proteção de rotas
-- `src/auth/AuthContext.tsx`: sessão, usuário, role, loading, `signIn`, `signOut`
-- `src/lib/supabase.ts`: cliente Supabase
-- `src/lib/pontoOnline.ts`: acesso CRUD de `ponto_online` + consultas de meses + profile
-- `src/lib/reportRules.ts`: regras de cálculo/validação mensal
-- `src/lib/pdfReport.ts`: montagem e download do PDF
-- `src/lib/recordsProbe.ts`: diagnóstico rápido de acesso à tabela
-- `src/pages/LoginPage.tsx`: formulário de login e redirecionamento por role
-- `src/pages/EmpregadaPage.tsx`: marcação diária e histórico da empregada
-- `src/pages/AdminPage.tsx`: edição/consulta, validação mensal e geração de PDF
-- `src/components/Modal.tsx`: modal genérico de confirmação/mensagem
-- `src/components/DbProbePanel.tsx`: bloco de diagnóstico no admin
-- `src/styles/theme.css`: variáveis de tema
-- `src/index.css`: layout global e responsividade
+```bash
+npm run dev      # desenvolvimento
+npm run build    # tsc + build vite
+npm run preview  # serve o dist local
+npm run lint     # lint
+```
 
-## Estado atual
+## 11. Banco de dados esperado
 
-- Login e controle por perfil: OK
-- Fluxo da empregada: OK
-- Fluxo de edição/consulta admin: OK
-- Validação de relatório mensal: OK
-- Geração de PDF: OK
-- PWA básico: OK
+### `public.ponto_online`
+
+Campos usados no app:
+
+- `id` (uuid)
+- `data` (date)
+- `empregado` (text)
+- `entrada`, `saida_almoco`, `volta_almoco`, `saida_final` (time)
+- `observacao` (text)
+- `inserido_em` (timestamp)
+- `user_id` (uuid -> auth.users.id)
+
+### `public.profiles`
+
+Campos usados:
+
+- `id` (uuid -> auth.users.id)
+- `role` (`admin` | `empregada`)
+- `nome` (opcional, para saudação)
+
+Importante:
+- Não alterar schema/policies por este frontend.
+- O app assume que as policies já estão corretas no Supabase.
+
+## 12. PWA: status atual
+
+Status: **pronto para produção**.
+
+Já configurado:
+
+- `vite-plugin-pwa` com `registerType: autoUpdate`
+- `manifest.webmanifest`
+- geração de `sw.js` no build
+- ícone em `public/pwa-icon.svg`
+- `start_url` baseado em `VITE_BASE_PATH`
+
+## 13. Deploy no GitHub Pages
+
+### Configuração única no GitHub
+
+1. Repositório -> `Settings` -> `Pages`
+2. Em `Source`, escolher `GitHub Actions`
+3. Criar secrets em `Settings` -> `Secrets and variables` -> `Actions`:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+
+### Como publicar a partir de agora
+
+1. Commit/push para `main`
+2. O workflow `.github/workflows/deploy-pages.yml` executa:
+   - `npm ci`
+   - `npm run build`
+   - cópia de `dist/index.html` para `dist/404.html` (fallback SPA)
+   - deploy para GitHub Pages
+
+Também é possível rodar manualmente por `Actions` -> `Deploy GitHub Pages` -> `Run workflow`.
+
+## 14. Supabase Auth: URLs obrigatórias
+
+No painel Supabase (`Authentication` -> `URL Configuration`):
+
+- `Site URL`: URL pública do app no GitHub Pages
+- `Redirect URLs`: incluir pelo menos
+  - `https://<usuario>.github.io/<repositorio>/login`
+  - `https://<usuario>.github.io/<repositorio>/`
+
+Sem isso, recuperação/fluxos de senha podem falhar.
+
+## 15. Troubleshooting rápido
+
+- Login entra mas volta para `/login`:
+  - usuário sem `role` válido em `public.profiles`.
+
+- Recuperação de senha não chega:
+  - conferir URL/key do Supabase no ambiente.
+  - validar `Site URL` e `Redirect URLs`.
+
+- Página quebra em refresh de rota no GitHub Pages:
+  - confirmar se o deploy gerou `404.html` no `dist`.
+
+- Dados não aparecem para um perfil:
+  - validar policies RLS para `profiles` e `ponto_online`.
+
+## 16. Estado atual
+
+- Login, alteração e recuperação de senha
+- Controle de ponto sequencial da empregada
+- Histórico mensal colapsável
+- Edição/admin com filtro opcional por dia
+- Relatório mensal com validação e PDF
+- PWA com service worker
+- Deploy automático no GitHub Pages

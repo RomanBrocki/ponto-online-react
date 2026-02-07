@@ -46,8 +46,8 @@ export default function AdminPage() {
   const { signOut, loading, user } = useAuth();
   const [month, setMonth] = useState(currentMonthKey());
   const [selectedEmpregada, setSelectedEmpregada] = useState("");
+  const [selectedDay, setSelectedDay] = useState("");
 
-  const [recordsLoading, setRecordsLoading] = useState(false);
   const [recordsError, setRecordsError] = useState<string | null>(null);
   const [allRecords, setAllRecords] = useState<PontoOnlineRow[]>([]);
   const [availableMonths, setAvailableMonths] = useState<string[]>([]);
@@ -115,7 +115,8 @@ export default function AdminPage() {
 
   const visibleRecords = useMemo(() => {
     if (!selectedEmpregada) {
-      return [...allRecords].sort((a, b) => b.data.localeCompare(a.data)) as AdminGridRow[];
+      const sortedRows = [...allRecords].sort((a, b) => b.data.localeCompare(a.data)) as AdminGridRow[];
+      return selectedDay ? sortedRows.filter((row) => row.data === selectedDay) : sortedRows;
     }
 
     const selectedRows = allRecords.filter(
@@ -141,8 +142,9 @@ export default function AdminPage() {
         virtualWeekend: true,
       }));
 
-    return [...selectedRows, ...weekends].sort((a, b) => b.data.localeCompare(a.data));
-  }, [allRecords, selectedEmpregada, month, uniqueEmpregadas]);
+    const sortedRows = [...selectedRows, ...weekends].sort((a, b) => b.data.localeCompare(a.data));
+    return selectedDay ? sortedRows.filter((row) => row.data === selectedDay) : sortedRows;
+  }, [allRecords, selectedEmpregada, month, selectedDay, uniqueEmpregadas]);
 
   const pendingPreview = useMemo(() => {
     if (!report?.pendingWeekdays.length) return [];
@@ -162,6 +164,17 @@ export default function AdminPage() {
     return MONTH_OPTIONS.filter((option) => monthsFromYear.includes(option.value));
   }, [availableMonths, monthParts.year]);
 
+  const dayOptions = useMemo(
+    () => buildMonthDays(month).sort((a, b) => b.localeCompare(a)),
+    [month],
+  );
+
+  useEffect(() => {
+    if (selectedDay && !dayOptions.includes(selectedDay)) {
+      setSelectedDay("");
+    }
+  }, [selectedDay, dayOptions]);
+
   useEffect(() => {
     if (!yearOptions.includes(monthParts.year)) {
       const fallbackYear = yearOptions[yearOptions.length - 1];
@@ -178,11 +191,9 @@ export default function AdminPage() {
   }, [yearOptions, monthParts.year, availableMonths]);
 
   const handleLoadRecords = async () => {
-    setRecordsLoading(true);
     setRecordsError(null);
 
     const { data, error } = await fetchPontoOnlineAdminByMonth(month, "");
-    setRecordsLoading(false);
 
     if (error || !data) {
       setAllRecords([]);
@@ -367,6 +378,21 @@ export default function AdminPage() {
         <section className="panel">
           <h2>Registros do mês</h2>
           <div className="form-grid report-grid">
+            <label htmlFor="empregada-select">Empregada</label>
+            <select
+              id="empregada-select"
+              value={selectedEmpregada}
+              onChange={(event) => setSelectedEmpregada(event.target.value)}
+              disabled={uniqueEmpregadas.length <= 1}
+            >
+              {uniqueEmpregadas.length > 1 ? <option value="">Todas</option> : null}
+              {uniqueEmpregadas.map((item) => (
+                <option key={item.key} value={item.key}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+
             <label htmlFor="ano-admin">Ano</label>
             <select
               id="ano-admin"
@@ -406,24 +432,20 @@ export default function AdminPage() {
               ))}
             </select>
 
-            <label htmlFor="empregada-select">Empregada</label>
+            <label htmlFor="dia-admin">Dia</label>
             <select
-              id="empregada-select"
-              value={selectedEmpregada}
-              onChange={(event) => setSelectedEmpregada(event.target.value)}
-              disabled={uniqueEmpregadas.length <= 1}
+              id="dia-admin"
+              value={selectedDay}
+              onChange={(event) => setSelectedDay(event.target.value)}
             >
-              {uniqueEmpregadas.length > 1 ? <option value="">Todas</option> : null}
-              {uniqueEmpregadas.map((item) => (
-                <option key={item.key} value={item.key}>
-                  {item.label}
+              <option value="">Todos os dias</option>
+              {dayOptions.map((day) => (
+                <option key={day} value={day}>
+                  {day}
                 </option>
               ))}
             </select>
 
-            <button type="button" onClick={() => void handleLoadRecords()} disabled={recordsLoading}>
-              {recordsLoading ? "Carregando..." : "Atualizar lista"}
-            </button>
           </div>
           <button
             type="button"
@@ -554,6 +576,23 @@ export default function AdminPage() {
             Validação obrigatória de dias úteis antes da geração do PDF.
           </p>
           <div className="form-grid report-grid">
+            <label htmlFor="empregado-report">Empregada para relatório</label>
+            <select
+              id="empregado-report"
+              value={selectedEmpregada}
+              onChange={(event) => setSelectedEmpregada(event.target.value)}
+              disabled={uniqueEmpregadas.length <= 1}
+            >
+              {uniqueEmpregadas.length > 1 ? (
+                <option value="">Selecione uma empregada</option>
+              ) : null}
+              {uniqueEmpregadas.map((item) => (
+                <option key={item.key} value={item.key}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+
             <label htmlFor="ano-report">Ano</label>
             <select
               id="ano-report"
@@ -589,23 +628,6 @@ export default function AdminPage() {
               {monthOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
-                </option>
-              ))}
-            </select>
-
-            <label htmlFor="empregado-report">Empregada para relatório</label>
-            <select
-              id="empregado-report"
-              value={selectedEmpregada}
-              onChange={(event) => setSelectedEmpregada(event.target.value)}
-              disabled={uniqueEmpregadas.length <= 1}
-            >
-              {uniqueEmpregadas.length > 1 ? (
-                <option value="">Selecione uma empregada</option>
-              ) : null}
-              {uniqueEmpregadas.map((item) => (
-                <option key={item.key} value={item.key}>
-                  {item.label}
                 </option>
               ))}
             </select>
