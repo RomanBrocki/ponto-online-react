@@ -39,3 +39,10 @@ Backend is Supabase (Auth + RLS).
 - React + TypeScript
 - react-router-dom
 - @supabase/supabase-js
+
+## Design System
+- Use CSS variables defined in src/styles/theme.css (.theme-gunmetal).
+- Do NOT introduce new color palettes.
+- Prefer var(--bg), var(--surface), var(--text), var(--primary), etc.
+- Minimal styling only; focus on layout and usability.
+

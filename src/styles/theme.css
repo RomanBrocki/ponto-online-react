@@ -1,0 +1,16 @@
+.theme-gunmetal {
+  --bg: #0e1218;
+  --surface: #141923;
+  --text: #e5e7eb;
+  --muted: #93a1b1;
+
+  --primary: #22d3ee;
+  --primary-600: #06b6d4;
+  --accent: #ff38a1;
+  --danger: #ef4444;
+
+  --border: #232a36;
+  --chip: #1a2130;
+  --glow: 0 0 24px rgba(34,211,238,.25),
+          0 0 4px rgba(34,211,238,.4);
+}
