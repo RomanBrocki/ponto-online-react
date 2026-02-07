@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap");
+
 * {
   box-sizing: border-box;
 }
@@ -9,7 +11,7 @@ html {
 }
 
 :root {
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  font-family: "Montserrat", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -76,9 +78,46 @@ body {
   width: min(420px, 100%);
 }
 
+.auth-panel h1 {
+  text-align: center;
+}
+
 .page-header {
   display: grid;
   gap: 0.5rem;
+  justify-items: center;
+  text-align: center;
+}
+
+.page-header h1 {
+  font-size: clamp(1.05rem, 1.8vw, 1.25rem);
+  line-height: 1.2;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.page-intro {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+}
+
+.page-intro-title {
+  font-size: clamp(1.45rem, 2.8vw, 2rem);
+  line-height: 1.05;
+  letter-spacing: 0.01em;
+}
+
+.panel h2 {
+  text-align: center;
+}
+
+.page-header .muted {
+  font-size: 0.68rem;
+}
+
+.collapse-toggle {
+  margin-top: 0.75rem;
 }
 
 .form-grid {
@@ -119,7 +158,7 @@ body {
 .punch-card.stage-saida_almoco {
   background-image:
     linear-gradient(rgba(20, 25, 35, 0.75), rgba(20, 25, 35, 0.75)),
-    url("https://images.unsplash.com/photo-1556911220-bda9f7f7597e?auto=format&fit=crop&w=600&q=80");
+    url("https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=600&q=80");
 }
 
 .punch-card.stage-volta_almoco {
@@ -168,8 +207,8 @@ button,
   background: var(--chip);
   color: var(--text);
   padding: 0.65rem 0.75rem;
-  font: inherit;
   font-size: 16px;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 button {
@@ -222,7 +261,51 @@ button:disabled {
 }
 
 .page-empregada {
-  overflow-x: hidden;
+  overflow: visible;
+}
+
+.page-empregada .panel {
+  background: rgba(20, 25, 35, 0.58);
+}
+
+.page-empregada .confirm-panel {
+  background: rgba(26, 33, 48, 0.5);
+}
+
+.page-empregada .punch-card {
+  background-color: rgba(26, 33, 48, 0.46);
+}
+
+.page-empregada .punch-card.stage-entrada {
+  background-image:
+    linear-gradient(rgba(20, 25, 35, 0.58), rgba(20, 25, 35, 0.58)),
+    url("https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=600&q=80");
+}
+
+.page-empregada .punch-card.stage-saida_almoco {
+  background-image:
+    linear-gradient(rgba(20, 25, 35, 0.58), rgba(20, 25, 35, 0.58)),
+    url("https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=600&q=80");
+}
+
+.page-empregada .punch-card.stage-volta_almoco {
+  background-image:
+    linear-gradient(rgba(20, 25, 35, 0.58), rgba(20, 25, 35, 0.58)),
+    url("https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=600&q=80");
+}
+
+.page-empregada .punch-card.stage-saida_final {
+  background-image:
+    linear-gradient(rgba(20, 25, 35, 0.58), rgba(20, 25, 35, 0.58)),
+    url("https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=600&q=80");
+}
+
+.page-admin .panel {
+  background: rgba(20, 25, 35, 0.58);
+}
+
+.page-admin .stack-mobile tr {
+  background: rgba(26, 33, 48, 0.5);
 }
 
 .page-empregada .confirm-actions {
@@ -412,3 +495,5 @@ p {
     min-width: 0;
   }
 }
+
+

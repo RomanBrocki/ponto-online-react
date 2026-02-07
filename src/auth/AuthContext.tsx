@@ -8,11 +8,15 @@ import {
   type ReactNode,
 } from "react";
 import type { Session, User } from "@supabase/supabase-js";
-import { supabase } from "../lib/supabase";
+import { createIsolatedSupabaseClient, supabase } from "../lib/supabase";
 
 export type Role = "admin" | "empregada" | null;
 
 type SignInResult = {
+  error: string | null;
+};
+
+type AuthActionResult = {
   error: string | null;
 };
 
@@ -22,6 +26,15 @@ type AuthContextValue = {
   role: Role;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<SignInResult>;
+  requestPasswordReset: (
+    email: string,
+    redirectTo?: string,
+  ) => Promise<AuthActionResult>;
+  changePasswordWithCurrent: (
+    email: string,
+    currentPassword: string,
+    newPassword: string,
+  ) => Promise<AuthActionResult>;
   signOut: () => Promise<void>;
 };
 
@@ -196,6 +209,73 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, []);
 
+  const requestPasswordReset = useCallback(
+    async (
+      email: string,
+      redirectTo?: string,
+    ): Promise<AuthActionResult> => {
+      try {
+        const { error } = await withTimeout(
+          supabase.auth.resetPasswordForEmail(email, {
+            redirectTo,
+          }),
+          AUTH_TIMEOUT_MS,
+        );
+        if (error) {
+          return { error: error.message };
+        }
+        return { error: null };
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Erro ao solicitar recuperação de senha";
+        return { error: message };
+      }
+    },
+    [],
+  );
+
+  const changePasswordWithCurrent = useCallback(
+    async (
+      email: string,
+      currentPassword: string,
+      newPassword: string,
+    ): Promise<AuthActionResult> => {
+      try {
+        const isolated = createIsolatedSupabaseClient();
+        const { error: signInError } = await withTimeout(
+          isolated.auth.signInWithPassword({
+            email,
+            password: currentPassword,
+          }),
+          AUTH_TIMEOUT_MS,
+        );
+        if (signInError) {
+          return { error: signInError.message };
+        }
+
+        const { error: updateError } = await withTimeout(
+          isolated.auth.updateUser({
+            password: newPassword,
+          }),
+          AUTH_TIMEOUT_MS,
+        );
+        await withTimeout(isolated.auth.signOut(), AUTH_TIMEOUT_MS);
+
+        if (updateError) {
+          return { error: updateError.message };
+        }
+        return { error: null };
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Erro ao alterar senha";
+        return { error: message };
+      }
+    },
+    [],
+  );
+
   const value = useMemo<AuthContextValue>(
     () => ({
       session,
@@ -203,9 +283,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
       role,
       loading,
       signIn,
+      requestPasswordReset,
+      changePasswordWithCurrent,
       signOut,
     }),
-    [session, user, role, loading, signIn, signOut],
+    [
+      session,
+      user,
+      role,
+      loading,
+      signIn,
+      requestPasswordReset,
+      changePasswordWithCurrent,
+      signOut,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

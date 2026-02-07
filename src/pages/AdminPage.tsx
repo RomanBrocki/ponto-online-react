@@ -43,7 +43,7 @@ type AdminViewMode = "records" | "report";
 const OBS_OPTIONS = ["", "Feriado", "Dispensa Justificada", "Falta"];
 
 export default function AdminPage() {
-  const { signOut, loading, user, role } = useAuth();
+  const { signOut, loading, user } = useAuth();
   const [month, setMonth] = useState(currentMonthKey());
   const [selectedEmpregada, setSelectedEmpregada] = useState("");
 
@@ -56,10 +56,13 @@ export default function AdminPage() {
   const [reportLoading, setReportLoading] = useState(false);
   const [report, setReport] = useState<ReportValidation | null>(null);
   const [modalState, setModalState] = useState<ModalState | null>(null);
-  const [showEditList, setShowEditList] = useState(true);
-  const [showReportPreview, setShowReportPreview] = useState(true);
+  const [showEditList, setShowEditList] = useState(false);
+  const [showReportPreview, setShowReportPreview] = useState(false);
   const [viewMode, setViewMode] = useState<AdminViewMode>("records");
   const monthParts = splitMonth(month);
+  const adminDisplayName = formatPersonName(
+    extractNameFromEmail(user?.email) || user?.email || user?.id || "Admin",
+  );
 
   const uniqueEmpregadas = useMemo(() => {
     const byKey = new Map<string, string>();
@@ -291,7 +294,7 @@ export default function AdminPage() {
 
     const validation = buildMonthlyReportValidation(data, month);
     setReport(validation);
-    setShowReportPreview(true);
+    setShowReportPreview(false);
 
     if (validation.pendingWeekdays.length > 0) {
       setModalState({
@@ -326,12 +329,18 @@ export default function AdminPage() {
   };
 
   return (
-    <main className="page">
+    <main className="page page-admin">
+      <section className="panel page-intro">
+        <h1 className="page-intro-title">
+          Controle de Ponto
+          <br />
+          On-line
+        </h1>
+      </section>
+
       <header className="panel page-header">
-        <h1>Painel Admin</h1>
-        <p className="muted">Visualização geral e manutenção de registros.</p>
-        <p>Usuário: {user?.email ?? user?.id ?? "sem usuário"}</p>
-        <p>Perfil: {role ?? "sem role"}</p>
+        <p>Olá, {adminDisplayName}!</p>
+        <p className="muted">Perfil de acesso: Empregador</p>
       </header>
 
       <section className="panel">
@@ -357,13 +366,6 @@ export default function AdminPage() {
       {viewMode === "records" ? (
         <section className="panel">
           <h2>Registros do mês</h2>
-          <button
-            type="button"
-            className="button-muted"
-            onClick={() => setShowEditList((previous) => !previous)}
-          >
-            {showEditList ? "Ocultar listagem" : "Mostrar listagem"}
-          </button>
           <div className="form-grid report-grid">
             <label htmlFor="ano-admin">Ano</label>
             <select
@@ -423,6 +425,13 @@ export default function AdminPage() {
               {recordsLoading ? "Carregando..." : "Atualizar lista"}
             </button>
           </div>
+          <button
+            type="button"
+            className="button-muted collapse-toggle"
+            onClick={() => setShowEditList((previous) => !previous)}
+          >
+            {showEditList ? "Clique aqui para recolher" : "Clique aqui para expandir"}
+          </button>
 
           {recordsError ? <p className="error-text">{recordsError}</p> : null}
           <p className="muted">Registros carregados: {visibleRecords.length}</p>
@@ -493,7 +502,7 @@ export default function AdminPage() {
                         </td>
                         <td data-label="Observação">
                           {weekend ? (
-                            <span className="muted">Fim de Semana (visual)</span>
+                            <span className="muted">Fim de Semana</span>
                           ) : (
                             <select
                               value={draft?.observacao ?? ""}
@@ -816,6 +825,12 @@ const MONTH_OPTIONS = [
 function normalizeEmpregadaKey(value: string | null | undefined) {
   if (!value) return "";
   return value.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function extractNameFromEmail(email: string | null | undefined) {
+  if (!email) return null;
+  const [localPart] = email.split("@");
+  return localPart || null;
 }
 
 function formatPersonName(value: string) {

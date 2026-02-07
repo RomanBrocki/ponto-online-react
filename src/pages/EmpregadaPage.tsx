@@ -12,11 +12,11 @@ import { formatMinutes } from "../lib/reportRules";
 
 type Stage = "entrada" | "saida_almoco" | "volta_almoco" | "saida_final";
 
-const STAGE_CONFIG: Record<Stage, { label: string; symbol: string }> = {
-  entrada: { label: "Entrada", symbol: "[E]" },
-  saida_almoco: { label: "Saída almoço", symbol: "[SA]" },
-  volta_almoco: { label: "Volta almoço", symbol: "[VA]" },
-  saida_final: { label: "Saída final", symbol: "[SF]" },
+const STAGE_CONFIG: Record<Stage, { label: string }> = {
+  entrada: { label: "Entrada" },
+  saida_almoco: { label: "Saída Almoço" },
+  volta_almoco: { label: "Volta Almoço" },
+  saida_final: { label: "Saída Final" },
 };
 
 const STAGES: Stage[] = ["entrada", "saida_almoco", "volta_almoco", "saida_final"];
@@ -24,7 +24,7 @@ const STAGES: Stage[] = ["entrada", "saida_almoco", "volta_almoco", "saida_final
 const MONTH_OPTIONS = [
   { value: 1, label: "Janeiro" },
   { value: 2, label: "Fevereiro" },
-  { value: 3, label: "Marco" },
+  { value: 3, label: "Março" },
   { value: 4, label: "Abril" },
   { value: 5, label: "Maio" },
   { value: 6, label: "Junho" },
@@ -45,6 +45,7 @@ export default function EmpregadaPage() {
   const [todayLoading, setTodayLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [history, setHistory] = useState<PontoOnlineRow[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
   const [availableMonths, setAvailableMonths] = useState<string[]>([currentMonthKey()]);
   const [pageError, setPageError] = useState<string | null>(null);
 
@@ -184,10 +185,17 @@ export default function EmpregadaPage() {
 
   return (
     <main className="page page-empregada">
+      <section className="panel page-intro">
+        <h1 className="page-intro-title">
+          Controle de Ponto
+          <br />
+          On-line
+        </h1>
+      </section>
+
       <header className="panel page-header">
-        <h1>Painel Empregada</h1>
-        <p className="muted">Registro diário de ponto.</p>
         <p>Olá, {displayName}!</p>
+        <p className="muted">Perfil de acesso: Funcionário</p>
       </header>
 
       <section className="panel">
@@ -224,7 +232,7 @@ export default function EmpregadaPage() {
           {todayLoading
             ? "Atualizando..."
             : currentStage
-              ? `${STAGE_CONFIG[currentStage].symbol} ${STAGE_CONFIG[currentStage].label}`
+              ? STAGE_CONFIG[currentStage].label
               : "Jornada do dia concluída"}
         </button>
 
@@ -289,38 +297,47 @@ export default function EmpregadaPage() {
             ))}
           </select>
         </div>
+        <button
+          type="button"
+          className="button-muted collapse-toggle"
+          onClick={() => setShowHistory((previous) => !previous)}
+        >
+          {showHistory ? "Clique aqui para recolher" : "Clique aqui para expandir"}
+        </button>
 
         {historyLoading ? <p className="muted">Carregando histórico...</p> : null}
         {pageError ? <p className="error-text">{pageError}</p> : null}
 
-        <div className="report-table-wrap">
-          <table className="report-table stack-mobile">
-            <thead>
-              <tr>
-                <th>Data</th>
-                <th>Entrada</th>
-                <th>Saída almoço</th>
-                <th>Volta almoço</th>
-                <th>Saída final</th>
-                <th>Saldo</th>
-                <th>Observação</th>
-              </tr>
-            </thead>
-            <tbody>
-              {history.map((row) => (
-                <tr key={row.id}>
-                  <td data-label="Data">{row.data}</td>
-                  <td data-label="Entrada">{row.entrada ?? "-"}</td>
-                  <td data-label="Saída almoço">{row.saida_almoco ?? "-"}</td>
-                  <td data-label="Volta almoço">{row.volta_almoco ?? "-"}</td>
-                  <td data-label="Saída final">{row.saida_final ?? "-"}</td>
-                  <td data-label="Saldo">{dayBalanceLabel(row)}</td>
-                  <td data-label="Observação">{row.observacao ?? "-"}</td>
+        {showHistory ? (
+          <div className="report-table-wrap">
+            <table className="report-table stack-mobile">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Entrada</th>
+                  <th>Saída Almoço</th>
+                  <th>Volta Almoço</th>
+                  <th>Saída Final</th>
+                  <th>Saldo</th>
+                  <th>Observação</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {history.map((row) => (
+                  <tr key={row.id}>
+                    <td data-label="Data">{row.data}</td>
+                    <td data-label="Entrada">{row.entrada ?? "-"}</td>
+                    <td data-label="Saída Almoço">{row.saida_almoco ?? "-"}</td>
+                    <td data-label="Volta Almoço">{row.volta_almoco ?? "-"}</td>
+                    <td data-label="Saída Final">{row.saida_final ?? "-"}</td>
+                    <td data-label="Saldo">{dayBalanceLabel(row)}</td>
+                    <td data-label="Observação">{row.observacao ?? "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
       </section>
 
       <section className="panel">
@@ -412,7 +429,7 @@ function stageProgressMessage(stage: Stage, row: PontoOnlineRow | null) {
   }
 
   const workedDay = workedMinutes(row);
-  if (workedDay === null) return "Saída final registrada.";
+  if (workedDay === null) return "Saída Final registrada.";
   return `Jornada do dia: ${formatDuration(workedDay)}.`;
 }
 
