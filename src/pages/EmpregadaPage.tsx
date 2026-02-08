@@ -12,11 +12,11 @@ import { formatMinutes } from "../lib/reportRules";
 
 type Stage = "entrada" | "saida_almoco" | "volta_almoco" | "saida_final";
 
-const STAGE_CONFIG: Record<Stage, { label: string }> = {
-  entrada: { label: "Entrada" },
-  saida_almoco: { label: "Saída Almoço" },
-  volta_almoco: { label: "Volta Almoço" },
-  saida_final: { label: "Saída Final" },
+const STAGE_CONFIG: Record<Stage, { label: string; actionLabel: string }> = {
+  entrada: { label: "Entrada", actionLabel: "Registrar entrada agora" },
+  saida_almoco: { label: "Saída Almoço", actionLabel: "Registrar saída almoço" },
+  volta_almoco: { label: "Volta Almoço", actionLabel: "Registrar volta almoço" },
+  saida_final: { label: "Saída Final", actionLabel: "Registrar saída final" },
 };
 
 const STAGES: Stage[] = ["entrada", "saida_almoco", "volta_almoco", "saida_final"];
@@ -142,7 +142,7 @@ export default function EmpregadaPage() {
     setFeedbackMessage(null);
 
     if (!currentStage) {
-      setFeedbackMessage("Todos os registros de hoje já foram preenchidos.");
+      setFeedbackMessage("Jornada de hoje já está concluída.");
       return;
     }
 
@@ -170,7 +170,7 @@ export default function EmpregadaPage() {
     });
 
     if (error) {
-      setFeedbackMessage(`Falha ao registrar: ${error}`);
+      setFeedbackMessage(`Falha ao registrar ponto: ${error}`);
       cancelPending();
       return;
     }
@@ -228,12 +228,13 @@ export default function EmpregadaPage() {
           className="button-full"
           disabled={todayLoading || !currentStage}
           onClick={askRegisterStage}
+          aria-label={primaryActionAriaLabel(currentStage)}
         >
           {todayLoading
             ? "Atualizando..."
             : currentStage
-              ? STAGE_CONFIG[currentStage].label
-              : "Jornada do dia concluída"}
+              ? STAGE_CONFIG[currentStage].actionLabel
+              : "Jornada concluída hoje"}
         </button>
 
         {pendingStage ? (
@@ -244,14 +245,20 @@ export default function EmpregadaPage() {
                 Cancelar
               </button>
               <button type="button" onClick={() => void confirmPending()}>
-                Confirmar
+                Confirmar marcação
               </button>
             </div>
           </section>
         ) : null}
 
         {feedbackMessage ? (
-          <p className={isErrorFeedback ? "error-text" : "success-text"}>{feedbackMessage}</p>
+          <p
+            className={isErrorFeedback ? "error-text" : "success-text"}
+            role={isErrorFeedback ? "alert" : "status"}
+            aria-live={isErrorFeedback ? "assertive" : "polite"}
+          >
+            {feedbackMessage}
+          </p>
         ) : null}
 
         <button
@@ -308,7 +315,14 @@ export default function EmpregadaPage() {
           </div>
 
           {historyLoading ? <p className="muted">Carregando histórico...</p> : null}
-          {pageError ? <p className="error-text">{pageError}</p> : null}
+          {pageError ? (
+            <p className="error-text" role="alert" aria-live="assertive">
+              {pageError}
+            </p>
+          ) : null}
+          {!historyLoading && !pageError && history.length === 0 ? (
+            <p className="muted">Nenhum registro encontrado para o período selecionado.</p>
+          ) : null}
 
           <div className="report-table-wrap">
             <table className="report-table stack-mobile">
@@ -344,7 +358,7 @@ export default function EmpregadaPage() {
       <section className="panel">
         <button
           type="button"
-          className="button-danger button-full"
+          className="button-muted button-full"
           onClick={signOut}
           disabled={loading}
         >
@@ -410,7 +424,7 @@ function parseTime(value: string) {
 
 function stageProgressMessage(stage: Stage, row: PontoOnlineRow | null) {
   if (!row) {
-    return `${STAGE_CONFIG[stage].label} concluída com sucesso.`;
+    return `${STAGE_CONFIG[stage].label} registrada com sucesso.`;
   }
 
   if (stage === "entrada") {
@@ -418,20 +432,23 @@ function stageProgressMessage(stage: Stage, row: PontoOnlineRow | null) {
   }
 
   if (stage === "saida_almoco") {
+    const saidaAlmoco = shortTime(row.saida_almoco ?? "00:00");
     const worked = minutesBetween(row.entrada, row.saida_almoco);
-    if (worked === null) return "Saída para almoço registrada.";
-    return `Jornada até almoço: ${formatDuration(worked)}.`;
+    if (worked === null) return `Saída almoço registrada às ${saidaAlmoco}.`;
+    return `Saída almoço às ${saidaAlmoco}. Jornada até almoço: ${formatDuration(worked)}.`;
   }
 
   if (stage === "volta_almoco") {
+    const voltaAlmoco = shortTime(row.volta_almoco ?? "00:00");
     const breakMinutes = minutesBetween(row.saida_almoco, row.volta_almoco);
-    if (breakMinutes === null) return "Retorno do almoço registrado.";
-    return `Intervalo de almoço: ${formatDuration(breakMinutes)}.`;
+    if (breakMinutes === null) return `Volta almoço registrada às ${voltaAlmoco}.`;
+    return `Volta almoço às ${voltaAlmoco}. Intervalo: ${formatDuration(breakMinutes)}.`;
   }
 
+  const saidaFinal = shortTime(row.saida_final ?? "00:00");
   const workedDay = workedMinutes(row);
-  if (workedDay === null) return "Saída Final registrada.";
-  return `Jornada do dia: ${formatDuration(workedDay)}.`;
+  if (workedDay === null) return `Saída final registrada às ${saidaFinal}.`;
+  return `Saída final às ${saidaFinal}. Jornada do dia: ${formatDuration(workedDay)}.`;
 }
 
 function minutesBetween(start: string | null, end: string | null) {
@@ -454,27 +471,34 @@ function confirmationMessage(stage: Stage, row: PontoOnlineRow | null) {
   const now = timeNow();
 
   if (stage === "entrada") {
-    return "Confirmar marcação de entrada agora?";
+    return "Registrar entrada agora?";
   }
 
   if (stage === "saida_almoco") {
     const worked = minutesBetween(row?.entrada ?? null, now);
-    if (worked === null) return "Confirmar marcação de saída para almoço?";
-    return `Jornada até almoço: ${formatDuration(worked)}. Confirmar marcação?`;
+    if (worked === null) return "Registrar saída almoço agora?";
+    return `Registrar saída almoço agora? Jornada até almoço: ${formatDuration(worked)}.`;
   }
 
   if (stage === "volta_almoco") {
     const breakMinutes = minutesBetween(row?.saida_almoco ?? null, now);
-    if (breakMinutes === null) return "Confirmar marcação de volta do almoço?";
-    return `Intervalo de almoço: ${formatDuration(breakMinutes)}. Confirmar marcação?`;
+    if (breakMinutes === null) return "Registrar volta almoço agora?";
+    return `Registrar volta almoço agora? Intervalo: ${formatDuration(breakMinutes)}.`;
   }
 
   const entryToLunch = minutesBetween(row?.entrada ?? null, row?.saida_almoco ?? null);
   const lunchToNow = minutesBetween(row?.volta_almoco ?? null, now);
   if (entryToLunch === null || lunchToNow === null) {
-    return "Confirmar marcação de saída final?";
+    return "Registrar saída final agora?";
   }
-  return `Jornada do dia: ${formatDuration(entryToLunch + lunchToNow)}. Confirmar marcação?`;
+  return `Registrar saída final agora? Jornada do dia: ${formatDuration(entryToLunch + lunchToNow)}.`;
+}
+
+function primaryActionAriaLabel(stage: Stage | null) {
+  if (!stage) {
+    return "Jornada de hoje concluída";
+  }
+  return STAGE_CONFIG[stage].actionLabel;
 }
 
 function displayDate(dateKey: string) {

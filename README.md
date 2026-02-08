@@ -112,7 +112,8 @@ A tela alterna o contexto sem sair da rota (`/login`), ajustando título e campo
 ### Painel Empregada (`/empregada`)
 
 - Bloco de marcação do dia com cartões de status.
-- Botão principal executa a próxima etapa válida da sequência.
+- Botão principal executa a próxima etapa válida da sequência com ação explícita (`Registrar ...`).
+- Confirmação curta antes de gravar a marcação e feedback objetivo após salvar.
 - Histórico do mês é exibido sob demanda com toggle `Exibir histórico` / `Ocultar histórico`.
 
 ### Painel Admin (`/admin`)
@@ -121,14 +122,17 @@ Tela inicial limpa com blocos essenciais:
 
 1. `Olá` (contexto do usuário)
 2. `Ações`
-3. `Diagnóstico DB`
+3. `Avançado` (diagnóstico recolhido por padrão)
 4. `Sair`
 
 No bloco `Ações`, os conteúdos são abertos sob demanda (toggle):
 
 1. `Editar/Consultar registros`
-   - filtros: Empregada > Ano > Mês > Dia
-   - lista inicia colapsada
+   - filtros: Empregada > Ano > Mês > Exibição
+   - lista abre junto com a ação (sem clique extra)
+   - exibição em lista única: `Últimos 5 dias`, `Todos os dias` ou `Dia DD/MM/AAAA`
+   - no mês atual, dias futuros não aparecem nas opções
+   - em meses anteriores, todos os dias do mês aparecem
    - edição por linha + salvar + apagar
 2. `Relatórios`
    - filtros: Empregada > Ano > Mês

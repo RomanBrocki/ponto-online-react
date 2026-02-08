@@ -39,6 +39,7 @@ type ModalState = {
 };
 
 type AdminViewMode = "records" | "report";
+type RecordsFilterValue = "__last_5_days__" | "__all_days__" | `day:${string}`;
 
 const OBS_OPTIONS = ["", "Feriado", "Dispensa Justificada", "Falta"];
 
@@ -46,7 +47,8 @@ export default function AdminPage() {
   const { signOut, loading, user } = useAuth();
   const [month, setMonth] = useState(currentMonthKey());
   const [selectedEmpregada, setSelectedEmpregada] = useState("");
-  const [selectedDay, setSelectedDay] = useState("");
+  const [recordsFilter, setRecordsFilter] =
+    useState<RecordsFilterValue>("__last_5_days__");
 
   const [recordsError, setRecordsError] = useState<string | null>(null);
   const [allRecords, setAllRecords] = useState<PontoOnlineRow[]>([]);
@@ -56,10 +58,13 @@ export default function AdminPage() {
   const [reportLoading, setReportLoading] = useState(false);
   const [report, setReport] = useState<ReportValidation | null>(null);
   const [modalState, setModalState] = useState<ModalState | null>(null);
-  const [showEditList, setShowEditList] = useState(false);
   const [showReportPreview, setShowReportPreview] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [viewMode, setViewMode] = useState<AdminViewMode | null>(null);
   const monthParts = splitMonth(month);
+  const currentMonth = currentMonthKey();
+  const isCurrentViewingMonth = month === currentMonth;
+  const todayKey = currentDateKey();
   const adminDisplayName = formatPersonName(
     extractNameFromEmail(user?.email) || user?.email || user?.id || "Admin",
   );
@@ -113,38 +118,74 @@ export default function AdminPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const dayOptions = useMemo(() => {
+    const days = buildMonthDays(month).sort((a, b) => b.localeCompare(a));
+    if (!isCurrentViewingMonth) return days;
+    return days.filter((day) => day <= todayKey);
+  }, [month, isCurrentViewingMonth, todayKey]);
+
+  const lastFiveDaysStart = useMemo(() => {
+    const orderedDays = [...dayOptions].sort((a, b) => a.localeCompare(b));
+    if (orderedDays.length === 0) return "";
+    const startIndex = Math.max(0, orderedDays.length - 5);
+    return orderedDays[startIndex];
+  }, [dayOptions]);
+
   const visibleRecords = useMemo(() => {
+    let rows: AdminGridRow[];
+
     if (!selectedEmpregada) {
-      const sortedRows = [...allRecords].sort((a, b) => b.data.localeCompare(a.data)) as AdminGridRow[];
-      return selectedDay ? sortedRows.filter((row) => row.data === selectedDay) : sortedRows;
+      rows = [...allRecords].sort((a, b) => b.data.localeCompare(a.data)) as AdminGridRow[];
+    } else {
+      const selectedRows = allRecords.filter(
+        (row) => normalizeEmpregadaKey(row.empregado) === selectedEmpregada,
+      );
+      const byDate = new Map(selectedRows.map((row) => [row.data, row]));
+      const weekends = buildMonthDays(month)
+        .filter(isWeekendDate)
+        .filter((date) => date <= todayKey)
+        .filter((date) => !byDate.has(date))
+        .map<AdminGridRow>((date) => ({
+          id: `virtual-weekend-${selectedEmpregada}-${date}`,
+          data: date,
+          empregado: selectedEmpregadaLabel(selectedEmpregada, uniqueEmpregadas),
+          entrada: null,
+          saida_almoco: null,
+          volta_almoco: null,
+          saida_final: null,
+          observacao: "Fim de Semana",
+          inserido_em: null,
+          user_id: null,
+          virtualWeekend: true,
+        }));
+
+      rows = [...selectedRows, ...weekends].sort((a, b) => b.data.localeCompare(a.data));
     }
 
-    const selectedRows = allRecords.filter(
-      (row) => normalizeEmpregadaKey(row.empregado) === selectedEmpregada,
-    );
-    const byDate = new Map(selectedRows.map((row) => [row.data, row]));
-    const todayKey = currentDateKey();
-    const weekends = buildMonthDays(month)
-      .filter(isWeekendDate)
-      .filter((date) => date <= todayKey)
-      .filter((date) => !byDate.has(date))
-      .map<AdminGridRow>((date) => ({
-        id: `virtual-weekend-${selectedEmpregada}-${date}`,
-        data: date,
-        empregado: selectedEmpregadaLabel(selectedEmpregada, uniqueEmpregadas),
-        entrada: null,
-        saida_almoco: null,
-        volta_almoco: null,
-        saida_final: null,
-        observacao: "Fim de Semana",
-        inserido_em: null,
-        user_id: null,
-        virtualWeekend: true,
-      }));
+    if (isCurrentViewingMonth) {
+      rows = rows.filter((row) => row.data <= todayKey);
+    }
 
-    const sortedRows = [...selectedRows, ...weekends].sort((a, b) => b.data.localeCompare(a.data));
-    return selectedDay ? sortedRows.filter((row) => row.data === selectedDay) : sortedRows;
-  }, [allRecords, selectedEmpregada, month, selectedDay, uniqueEmpregadas]);
+    if (recordsFilter.startsWith("day:")) {
+      const selectedDay = recordsFilter.slice(4);
+      return rows.filter((row) => row.data === selectedDay);
+    }
+
+    if (recordsFilter === "__last_5_days__" && lastFiveDaysStart) {
+      rows = rows.filter((row) => row.data >= lastFiveDaysStart);
+    }
+
+    return rows;
+  }, [
+    allRecords,
+    selectedEmpregada,
+    month,
+    uniqueEmpregadas,
+    isCurrentViewingMonth,
+    todayKey,
+    recordsFilter,
+    lastFiveDaysStart,
+  ]);
 
   const pendingPreview = useMemo(() => {
     if (!report?.pendingWeekdays.length) return [];
@@ -164,16 +205,15 @@ export default function AdminPage() {
     return MONTH_OPTIONS.filter((option) => monthsFromYear.includes(option.value));
   }, [availableMonths, monthParts.year]);
 
-  const dayOptions = useMemo(
-    () => buildMonthDays(month).sort((a, b) => b.localeCompare(a)),
-    [month],
-  );
-
   useEffect(() => {
-    if (selectedDay && !dayOptions.includes(selectedDay)) {
-      setSelectedDay("");
+    if (!recordsFilter.startsWith("day:")) {
+      return;
     }
-  }, [selectedDay, dayOptions]);
+    const selectedDay = recordsFilter.slice(4);
+    if (!dayOptions.includes(selectedDay)) {
+      setRecordsFilter("__last_5_days__");
+    }
+  }, [recordsFilter, dayOptions]);
 
   useEffect(() => {
     if (!yearOptions.includes(monthParts.year)) {
@@ -433,33 +473,33 @@ export default function AdminPage() {
               ))}
             </select>
 
-            <label htmlFor="dia-admin">Dia</label>
+            <label htmlFor="filtro-admin">Exibição</label>
             <select
-              id="dia-admin"
-              value={selectedDay}
-              onChange={(event) => setSelectedDay(event.target.value)}
+              id="filtro-admin"
+              value={recordsFilter}
+              onChange={(event) =>
+                setRecordsFilter(event.target.value as RecordsFilterValue)
+              }
             >
-              <option value="">Todos os dias</option>
+              <option value="__last_5_days__">Últimos 5 dias</option>
+              <option value="__all_days__">Todos os dias</option>
               {dayOptions.map((day) => (
-                <option key={day} value={day}>
-                  {day}
+                <option key={day} value={`day:${day}`}>
+                  {formatDayOptionLabel(day)}
                 </option>
               ))}
             </select>
 
           </div>
-          <button
-            type="button"
-            className="button-muted collapse-toggle"
-            onClick={() => setShowEditList((previous) => !previous)}
-          >
-            {showEditList ? "Clique aqui para recolher" : "Clique aqui para expandir"}
-          </button>
-
           {recordsError ? <p className="error-text">{recordsError}</p> : null}
           <p className="muted">Registros carregados: {visibleRecords.length}</p>
+          {isCurrentViewingMonth ? (
+            <p className="muted">No mês atual, somente dias até hoje são exibidos.</p>
+          ) : null}
 
-          {showEditList ? (
+          {visibleRecords.length === 0 ? (
+            <p className="muted">Nenhum registro encontrado com os filtros atuais.</p>
+          ) : (
             <div className="report-table-wrap admin-table-wrap">
               <table className="report-table admin-table stack-mobile">
                 <thead>
@@ -566,7 +606,7 @@ export default function AdminPage() {
                 </tbody>
               </table>
             </div>
-          ) : null}
+          )}
         </section>
       ) : null}
 
@@ -714,12 +754,23 @@ export default function AdminPage() {
         </section>
       ) : null}
 
-      <DbProbePanel />
+      <section className="panel">
+        <h2>Avançado</h2>
+        <button
+          type="button"
+          className="button-muted"
+          onClick={() => setShowAdvanced((previous) => !previous)}
+        >
+          {showAdvanced ? "Ocultar diagnóstico" : "Mostrar diagnóstico"}
+        </button>
+      </section>
+
+      {showAdvanced ? <DbProbePanel /> : null}
 
       <section className="panel">
         <button
           type="button"
-          className="button-danger button-full"
+          className="button-muted button-full"
           onClick={signOut}
           disabled={loading}
         >
@@ -750,6 +801,12 @@ function currentMonthKey() {
 function currentDateKey() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+function formatDayOptionLabel(dateKey: string) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const formatted = new Date(year, month - 1, day).toLocaleDateString("pt-BR");
+  return `Dia ${formatted}`;
 }
 
 function createDrafts(rows: PontoOnlineRow[]) {
