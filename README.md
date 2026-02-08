@@ -30,8 +30,8 @@ Sem servidor próprio: toda autenticação e persistência usam Supabase com pol
   1. Empregada
   2. Ano
   3. Mês
-  4. Dia (opcional)
-- Se selecionar `Dia`, mostra apenas aquele dia; se não, mostra o mês inteiro.
+  4. Exibição (`Últimos 5 dias`, `Todos os dias` ou `Dia DD/MM/AAAA`)
+- No mês atual, dias futuros não aparecem nas opções.
 - Pode definir observações de validação (`Feriado`, `Dispensa Justificada`, `Falta`).
 - Gera relatório mensal com prévia e PDF.
 
@@ -114,7 +114,7 @@ A tela alterna o contexto sem sair da rota (`/login`), ajustando título e campo
 - Bloco de marcação do dia com cartões de status.
 - Botão principal executa a próxima etapa válida da sequência com ação explícita (`Registrar ...`).
 - Confirmação curta antes de gravar a marcação e feedback objetivo após salvar.
-- Histórico do mês é exibido sob demanda com toggle `Exibir histórico` / `Ocultar histórico`.
+- Histórico do mês é exibido sob demanda com toggle `Mostrar histórico` / `Ocultar histórico`.
 
 ### Painel Admin (`/admin`)
 
@@ -306,7 +306,7 @@ Sem isso, recuperação/fluxos de senha podem falhar.
 - Controle de ponto sequencial da empregada
 - Histórico mensal sob demanda (toggle)
 - Admin com ações expansíveis/recolhíveis
-- Edição/admin com filtro opcional por dia
+- Edição/admin com lista única de exibição (últimos 5 dias, todos os dias ou dia específico)
 - Relatório mensal com validação e PDF
 - PWA com service worker
 - Deploy automático no GitHub Pages

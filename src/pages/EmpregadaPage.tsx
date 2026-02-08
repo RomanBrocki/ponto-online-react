@@ -13,7 +13,7 @@ import { formatMinutes } from "../lib/reportRules";
 type Stage = "entrada" | "saida_almoco" | "volta_almoco" | "saida_final";
 
 const STAGE_CONFIG: Record<Stage, { label: string; actionLabel: string }> = {
-  entrada: { label: "Entrada", actionLabel: "Registrar entrada agora" },
+  entrada: { label: "Entrada", actionLabel: "Registrar entrada" },
   saida_almoco: { label: "Saída Almoço", actionLabel: "Registrar saída almoço" },
   volta_almoco: { label: "Volta Almoço", actionLabel: "Registrar volta almoço" },
   saida_final: { label: "Saída Final", actionLabel: "Registrar saída final" },
@@ -142,7 +142,7 @@ export default function EmpregadaPage() {
     setFeedbackMessage(null);
 
     if (!currentStage) {
-      setFeedbackMessage("Jornada de hoje já está concluída.");
+      setFeedbackMessage("Jornada de hoje encerrada.");
       return;
     }
 
@@ -234,7 +234,7 @@ export default function EmpregadaPage() {
             ? "Atualizando..."
             : currentStage
               ? STAGE_CONFIG[currentStage].actionLabel
-              : "Jornada concluída hoje"}
+              : "Jornada encerrada hoje"}
         </button>
 
         {pendingStage ? (
@@ -245,7 +245,7 @@ export default function EmpregadaPage() {
                 Cancelar
               </button>
               <button type="button" onClick={() => void confirmPending()}>
-                Confirmar marcação
+                Confirmar
               </button>
             </div>
           </section>
@@ -266,13 +266,13 @@ export default function EmpregadaPage() {
           className="button-muted collapse-toggle history-toggle"
           onClick={() => setShowHistory((previous) => !previous)}
         >
-          {showHistory ? "Ocultar histórico" : "Exibir histórico"}
+          {showHistory ? "Ocultar histórico" : "Mostrar histórico"}
         </button>
       </section>
 
       {showHistory ? (
         <section className="panel">
-          <h2>Histórico (dias anteriores)</h2>
+          <h2>Histórico</h2>
           <div className="form-grid report-grid">
             <label htmlFor="ano-empregada">Ano</label>
           <select
@@ -321,7 +321,7 @@ export default function EmpregadaPage() {
             </p>
           ) : null}
           {!historyLoading && !pageError && history.length === 0 ? (
-            <p className="muted">Nenhum registro encontrado para o período selecionado.</p>
+            <p className="muted">Sem registros para o período selecionado.</p>
           ) : null}
 
           <div className="report-table-wrap">
