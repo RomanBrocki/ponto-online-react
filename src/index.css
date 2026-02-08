@@ -267,6 +267,16 @@ button:disabled {
   border: 1px solid var(--border);
 }
 
+.button-exit {
+  background: var(--chip);
+  color: var(--danger);
+  border: 1px solid var(--danger);
+}
+
+.button-exit:hover {
+  filter: brightness(1.06);
+}
+
 .button-full {
   width: 100%;
 }
@@ -389,6 +399,12 @@ p {
   padding: 0.45rem 0.5rem;
   text-align: left;
   white-space: nowrap;
+}
+
+.report-table td.numeric-balance {
+  text-align: right;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-variant-numeric: tabular-nums;
 }
 
 .modal-backdrop {

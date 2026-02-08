@@ -24,6 +24,7 @@ export type DayReportRow = {
 };
 
 export type ReportSummary = {
+  diasTrabalhados: number;
   faltas: number;
   feriados: number;
   dispensas: number;
@@ -77,22 +78,6 @@ export function buildMonthlyReportValidation(
     const worked = calculateWorkedMinutes(row);
     const obs = normalizeObservacao(row.observacao);
 
-    if (worked !== null) {
-      resultDays.push({
-        date,
-        weekday,
-        status: "jornada",
-        entrada: row.entrada,
-        saida_almoco: row.saida_almoco,
-        volta_almoco: row.volta_almoco,
-        saida_final: row.saida_final,
-        observacao: row.observacao,
-        workedMinutes: worked,
-        saldoMinutes: worked - DAILY_TARGET_MINUTES,
-      });
-      continue;
-    }
-
     if (obs === "feriado") {
       resultDays.push({
         date,
@@ -141,6 +126,22 @@ export function buildMonthlyReportValidation(
       continue;
     }
 
+    if (worked !== null) {
+      resultDays.push({
+        date,
+        weekday,
+        status: "jornada",
+        entrada: row.entrada,
+        saida_almoco: row.saida_almoco,
+        volta_almoco: row.volta_almoco,
+        saida_final: row.saida_final,
+        observacao: row.observacao,
+        workedMinutes: worked,
+        saldoMinutes: worked - DAILY_TARGET_MINUTES,
+      });
+      continue;
+    }
+
     resultDays.push(emptyPendingDay(date, weekday, row));
     pendingWeekdays.push(date);
   }
@@ -154,6 +155,14 @@ export function buildMonthlyReportValidation(
 
 export function formatMinutes(minutes: number) {
   const sign = minutes < 0 ? "-" : "";
+  const abs = Math.abs(minutes);
+  const hours = Math.floor(abs / 60);
+  const mins = abs % 60;
+  return `${sign}${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+}
+
+export function formatSignedMinutes(minutes: number) {
+  const sign = minutes < 0 ? "-" : "+";
   const abs = Math.abs(minutes);
   const hours = Math.floor(abs / 60);
   const mins = abs % 60;
@@ -179,7 +188,14 @@ export function statusLabel(status: DayStatus) {
   }
 }
 
+export function weekendDayLabel(dateKey: string) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const weekday = new Date(year, month - 1, day).getDay();
+  return weekday === 6 ? "Sábado" : "Domingo";
+}
+
 function buildSummary(days: DayReportRow[]): ReportSummary {
+  let diasTrabalhados = 0;
   let faltas = 0;
   let feriados = 0;
   let dispensas = 0;
@@ -188,6 +204,10 @@ function buildSummary(days: DayReportRow[]): ReportSummary {
   let balancoFinal = 0;
 
   for (const day of days) {
+    if (day.status === "jornada") diasTrabalhados += 1;
+    if (day.status === "dispensa_justificada" && hasAnyPunch(day)) {
+      diasTrabalhados += 1;
+    }
     if (day.status === "falta") faltas += 1;
     if (day.status === "feriado") feriados += 1;
     if (day.status === "dispensa_justificada") dispensas += 1;
@@ -204,6 +224,7 @@ function buildSummary(days: DayReportRow[]): ReportSummary {
   }
 
   return {
+    diasTrabalhados,
     faltas,
     feriados,
     dispensas,
@@ -211,6 +232,10 @@ function buildSummary(days: DayReportRow[]): ReportSummary {
     horasNegativas,
     balancoFinal,
   };
+}
+
+function hasAnyPunch(day: DayReportRow) {
+  return Boolean(day.entrada || day.saida_almoco || day.volta_almoco || day.saida_final);
 }
 
 function emptyPendingDay(

@@ -33,6 +33,9 @@ Sem servidor próprio: toda autenticação e persistência usam Supabase com pol
   4. Exibição (`Últimos 5 dias`, `Todos os dias` ou `Dia DD/MM/AAAA`)
 - No mês atual, dias futuros não aparecem nas opções.
 - Pode definir observações de validação (`Feriado`, `Dispensa Justificada`, `Falta`).
+- Marcador visual de fim de semana explícito por dia: `Sábado` ou `Domingo` (sem impacto no banco).
+- Quando marcado `Feriado` ou `Dispensa Justificada`, o dia não impacta o saldo de horas, mesmo com marcações de ponto.
+- Em `Dias trabalhados`, `Dispensa Justificada` conta como dia trabalhado apenas se houver alguma marcação de ponto no dia.
 - Gera relatório mensal com prévia e PDF.
 
 ## 3. Segurança e arquitetura
@@ -115,6 +118,7 @@ A tela alterna o contexto sem sair da rota (`/login`), ajustando título e campo
 - Botão principal executa a próxima etapa válida da sequência com ação explícita (`Registrar ...`).
 - Confirmação curta antes de gravar a marcação e feedback objetivo após salvar.
 - Histórico do mês é exibido sob demanda com toggle `Mostrar histórico` / `Ocultar histórico`.
+- Botão `Sair` com destaque visual moderado e confirmação antes de encerrar sessão.
 
 ### Painel Admin (`/admin`)
 
@@ -128,16 +132,24 @@ Tela inicial limpa com blocos essenciais:
 No bloco `Ações`, os conteúdos são abertos sob demanda (toggle):
 
 1. `Editar/Consultar registros`
+   - ao abrir a ação, os dados do mês são consultados novamente no banco
    - filtros: Empregada > Ano > Mês > Exibição
    - lista abre junto com a ação (sem clique extra)
    - exibição em lista única: `Últimos 5 dias`, `Todos os dias` ou `Dia DD/MM/AAAA`
    - no mês atual, dias futuros não aparecem nas opções
    - em meses anteriores, todos os dias do mês aparecem
+   - feedback de carregamento no admin: `Carregando registros...` e `Salvando...` por linha
    - edição por linha + salvar + apagar
 2. `Relatórios`
+   - ao abrir a ação, os dados do mês também são atualizados
    - filtros: Empregada > Ano > Mês
    - validação de pendências antes de gerar PDF
    - prévia colapsável
+   - resumo mensal inclui `Dias trabalhados`
+   - saldo com sinal explícito (`+HH:MM` / `-HH:MM`)
+   - PDF com campo de assinatura da empregada e data
+
+O botão `Sair` também possui confirmação antes de encerrar sessão.
 
 Clicar novamente na ação ativa recolhe o conteúdo.
 

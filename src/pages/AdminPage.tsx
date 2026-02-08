@@ -12,7 +12,8 @@ import {
 import {
   buildMonthlyReportValidation,
   formatMinutes,
-  statusLabel,
+  formatSignedMinutes,
+  weekendDayLabel,
   type ReportValidation,
 } from "../lib/reportRules";
 import { generateMonthlyPdfReport } from "../lib/pdfReport";
@@ -42,6 +43,7 @@ type AdminViewMode = "records" | "report";
 type RecordsFilterValue = "__last_5_days__" | "__all_days__" | `day:${string}`;
 
 const OBS_OPTIONS = ["", "Feriado", "Dispensa Justificada", "Falta"];
+const UX_MIN_LOADING_MS = 1000;
 
 export default function AdminPage() {
   const { signOut, loading, user } = useAuth();
@@ -51,9 +53,11 @@ export default function AdminPage() {
     useState<RecordsFilterValue>("__last_5_days__");
 
   const [recordsError, setRecordsError] = useState<string | null>(null);
+  const [recordsLoading, setRecordsLoading] = useState(false);
   const [allRecords, setAllRecords] = useState<PontoOnlineRow[]>([]);
   const [availableMonths, setAvailableMonths] = useState<string[]>([]);
   const [drafts, setDrafts] = useState<Record<string, AdminDraft>>({});
+  const [savingRowIds, setSavingRowIds] = useState<Record<string, boolean>>({});
 
   const [reportLoading, setReportLoading] = useState(false);
   const [report, setReport] = useState<ReportValidation | null>(null);
@@ -153,7 +157,7 @@ export default function AdminPage() {
           saida_almoco: null,
           volta_almoco: null,
           saida_final: null,
-          observacao: "Fim de Semana",
+          observacao: weekendDayLabel(date),
           inserido_em: null,
           user_id: null,
           virtualWeekend: true,
@@ -232,8 +236,12 @@ export default function AdminPage() {
 
   const handleLoadRecords = async () => {
     setRecordsError(null);
+    setRecordsLoading(true);
+    const startedAt = Date.now();
 
     const { data, error } = await fetchPontoOnlineAdminByMonth(month, "");
+    await waitRemaining(startedAt, UX_MIN_LOADING_MS);
+    setRecordsLoading(false);
 
     if (error || !data) {
       setAllRecords([]);
@@ -246,9 +254,10 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
+    if (!viewMode) return;
     void handleLoadRecords();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [month]);
+  }, [viewMode, month]);
 
   const handleDraftChange = (
     id: string,
@@ -266,8 +275,11 @@ export default function AdminPage() {
 
   const handleSaveRow = async (row: PontoOnlineRow) => {
     if ((row as AdminGridRow).virtualWeekend) return;
+    if (savingRowIds[row.id]) return;
     const draft = drafts[row.id];
     if (!draft) return;
+    setSavingRowIds((previous) => ({ ...previous, [row.id]: true }));
+    const startedAt = Date.now();
 
     const { error } = await updatePontoOnlineById(row.id, {
       entrada: draft.entrada || null,
@@ -275,6 +287,12 @@ export default function AdminPage() {
       volta_almoco: draft.volta_almoco || null,
       saida_final: draft.saida_final || null,
       observacao: draft.observacao || null,
+    });
+    await waitRemaining(startedAt, UX_MIN_LOADING_MS);
+    setSavingRowIds((previous) => {
+      const next = { ...previous };
+      delete next[row.id];
+      return next;
     });
 
     if (error) {
@@ -383,6 +401,19 @@ export default function AdminPage() {
     setViewMode((previous) => (previous === nextMode ? null : nextMode));
   };
 
+  const askSignOut = () => {
+    setModalState({
+      title: "Encerrar sessão",
+      message: "Deseja sair da sua conta agora?",
+      confirmLabel: "Sair",
+      cancelLabel: "Cancelar",
+      onConfirm: () => {
+        setModalState(null);
+        void signOut();
+      },
+    });
+  };
+
   return (
     <main className="page page-admin">
       <header className="panel page-header">
@@ -424,7 +455,7 @@ export default function AdminPage() {
               id="empregada-select"
               value={selectedEmpregada}
               onChange={(event) => setSelectedEmpregada(event.target.value)}
-              disabled={uniqueEmpregadas.length <= 1}
+              disabled={recordsLoading || uniqueEmpregadas.length <= 1}
             >
               {uniqueEmpregadas.length > 1 ? <option value="">Todas</option> : null}
               {uniqueEmpregadas.map((item) => (
@@ -438,6 +469,7 @@ export default function AdminPage() {
             <select
               id="ano-admin"
               value={String(monthParts.year)}
+              disabled={recordsLoading}
               onChange={(event) =>
                 setMonth(
                   mergeMonth(
@@ -462,6 +494,7 @@ export default function AdminPage() {
             <select
               id="mes-admin"
               value={String(monthParts.month)}
+              disabled={recordsLoading}
               onChange={(event) =>
                 setMonth(mergeMonth(monthParts.year, Number(event.target.value)))
               }
@@ -477,6 +510,7 @@ export default function AdminPage() {
             <select
               id="filtro-admin"
               value={recordsFilter}
+              disabled={recordsLoading}
               onChange={(event) =>
                 setRecordsFilter(event.target.value as RecordsFilterValue)
               }
@@ -492,12 +526,16 @@ export default function AdminPage() {
 
           </div>
           {recordsError ? <p className="error-text">{recordsError}</p> : null}
-          <p className="muted">Registros carregados: {visibleRecords.length}</p>
+          {recordsLoading ? (
+            <p className="muted">Carregando registros...</p>
+          ) : (
+            <p className="muted">Registros carregados: {visibleRecords.length}</p>
+          )}
           {isCurrentViewingMonth ? (
             <p className="muted">No mês atual, somente dias até hoje são exibidos.</p>
           ) : null}
 
-          {visibleRecords.length === 0 ? (
+          {recordsLoading ? null : visibleRecords.length === 0 ? (
             <p className="muted">Nenhum registro encontrado com os filtros atuais.</p>
           ) : (
             <div className="report-table-wrap admin-table-wrap">
@@ -519,6 +557,7 @@ export default function AdminPage() {
                   {visibleRecords.map((row) => {
                     const draft = drafts[row.id];
                     const weekend = isWeekendDate(row.data);
+                    const isSavingRow = Boolean(savingRowIds[row.id]);
                     return (
                       <tr key={row.id}>
                         <td data-label="Data">{row.data}</td>
@@ -527,7 +566,7 @@ export default function AdminPage() {
                           <input
                             type="time"
                             value={draft?.entrada ?? ""}
-                            disabled={isVirtualWeekendRow(row)}
+                            disabled={recordsLoading || isVirtualWeekendRow(row)}
                             onChange={(event) =>
                               handleDraftChange(row.id, "entrada", event.target.value)
                             }
@@ -537,7 +576,7 @@ export default function AdminPage() {
                           <input
                             type="time"
                             value={draft?.saida_almoco ?? ""}
-                            disabled={isVirtualWeekendRow(row)}
+                            disabled={recordsLoading || isVirtualWeekendRow(row)}
                             onChange={(event) =>
                               handleDraftChange(row.id, "saida_almoco", event.target.value)
                             }
@@ -547,7 +586,7 @@ export default function AdminPage() {
                           <input
                             type="time"
                             value={draft?.volta_almoco ?? ""}
-                            disabled={isVirtualWeekendRow(row)}
+                            disabled={recordsLoading || isVirtualWeekendRow(row)}
                             onChange={(event) =>
                               handleDraftChange(row.id, "volta_almoco", event.target.value)
                             }
@@ -557,7 +596,7 @@ export default function AdminPage() {
                           <input
                             type="time"
                             value={draft?.saida_final ?? ""}
-                            disabled={isVirtualWeekendRow(row)}
+                            disabled={recordsLoading || isVirtualWeekendRow(row)}
                             onChange={(event) =>
                               handleDraftChange(row.id, "saida_final", event.target.value)
                             }
@@ -565,10 +604,11 @@ export default function AdminPage() {
                         </td>
                         <td data-label="Observação">
                           {weekend ? (
-                            <span className="muted">Fim de Semana</span>
+                            <span className="muted">{weekendDayLabel(row.data)}</span>
                           ) : (
                             <select
                               value={draft?.observacao ?? ""}
+                              disabled={recordsLoading}
                               onChange={(event) =>
                                 handleDraftChange(row.id, "observacao", event.target.value)
                               }
@@ -585,16 +625,16 @@ export default function AdminPage() {
                           <button
                             type="button"
                             onClick={() => void handleSaveRow(row)}
-                            disabled={isVirtualWeekendRow(row)}
+                            disabled={recordsLoading || isSavingRow || isVirtualWeekendRow(row)}
                           >
-                            Salvar
+                            {isSavingRow ? "Salvando..." : "Salvar"}
                           </button>
                         </td>
                         <td data-label="Apagar">
                           <button
                             type="button"
                             className="button-danger"
-                            disabled={isVirtualWeekendRow(row)}
+                            disabled={recordsLoading || isSavingRow || isVirtualWeekendRow(row)}
                             onClick={() => askDeleteRow(row)}
                           >
                             Apagar
@@ -704,11 +744,10 @@ export default function AdminPage() {
                   <tr>
                     <th>Data</th>
                     <th>Dia</th>
-                    <th>Status</th>
                     <th>Entrada</th>
                     <th>Saída almoço</th>
-                    <th>Volta almoço</th>
-                    <th>Saída final</th>
+                    <th>Retorno almoço</th>
+                    <th>Saída</th>
                     <th>Observação</th>
                     <th>Horas dia</th>
                     <th>Saldo</th>
@@ -719,20 +758,21 @@ export default function AdminPage() {
                     <tr key={day.date}>
                       <td data-label="Data">{day.date}</td>
                       <td data-label="Dia">{day.weekday}</td>
-                      <td data-label="Status">{statusLabel(day.status)}</td>
                       <td data-label="Entrada">{day.entrada ?? "-"}</td>
                       <td data-label="Saída almoço">{day.saida_almoco ?? "-"}</td>
-                      <td data-label="Volta almoço">{day.volta_almoco ?? "-"}</td>
-                      <td data-label="Saída final">{day.saida_final ?? "-"}</td>
+                      <td data-label="Retorno almoço">{day.volta_almoco ?? "-"}</td>
+                      <td data-label="Saída">{day.saida_final ?? "-"}</td>
                       <td data-label="Observação">
                         {day.status === "fim_semana"
-                          ? "Fim de Semana"
+                          ? weekendDayLabel(day.date)
                           : (day.observacao ?? "-")}
                       </td>
                       <td data-label="Horas dia">
                         {day.workedMinutes === null ? "-" : formatMinutes(day.workedMinutes)}
                       </td>
-                      <td data-label="Saldo">{formatMinutes(day.saldoMinutes)}</td>
+                      <td data-label="Saldo" className="numeric-balance">
+                        {formatSignedMinutes(day.saldoMinutes)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -745,12 +785,13 @@ export default function AdminPage() {
       {report && viewMode === "report" ? (
         <section className="panel">
           <h2>Resumo mensal</h2>
+          <p>Dias trabalhados: {report.summary.diasTrabalhados}</p>
           <p>Faltas: {report.summary.faltas}</p>
           <p>Feriados: {report.summary.feriados}</p>
           <p>Dispensas justificadas: {report.summary.dispensas}</p>
           <p>Horas extras: {formatMinutes(report.summary.horasExtras)}</p>
           <p>Horas negativas: {formatMinutes(report.summary.horasNegativas)}</p>
-          <p>Balanço final: {formatMinutes(report.summary.balancoFinal)}</p>
+          <p>Balanço final: {formatSignedMinutes(report.summary.balancoFinal)}</p>
         </section>
       ) : null}
 
@@ -770,8 +811,8 @@ export default function AdminPage() {
       <section className="panel">
         <button
           type="button"
-          className="button-muted button-full"
-          onClick={signOut}
+          className="button-exit button-full"
+          onClick={askSignOut}
           disabled={loading}
         >
           {loading ? "Saindo..." : "Sair"}
@@ -927,4 +968,14 @@ function selectedEmpregadaLabel(
   options: Array<{ key: string; label: string }>,
 ) {
   return options.find((item) => item.key === key)?.label ?? key;
+}
+
+async function waitRemaining(startedAt: number, minimumMs: number) {
+  const elapsed = Date.now() - startedAt;
+  const remaining = Math.max(0, minimumMs - elapsed);
+  if (remaining > 0) {
+    await new Promise<void>((resolve) => {
+      window.setTimeout(resolve, remaining);
+    });
+  }
 }

@@ -1,6 +1,11 @@
 ﻿import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { formatMinutes, statusLabel, type ReportValidation } from "./reportRules";
+import {
+  formatMinutes,
+  formatSignedMinutes,
+  weekendDayLabel,
+  type ReportValidation,
+} from "./reportRules";
 
 type GenerateMonthlyPdfParams = {
   report: ReportValidation;
@@ -24,6 +29,7 @@ const MONTH_NAMES = [
 ];
 
 const PAGE_MARGIN = 12;
+const TABLE_START_Y = 30;
 
 export function generateMonthlyPdfReport({
   report,
@@ -37,6 +43,7 @@ export function generateMonthlyPdfReport({
   });
 
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
   const centerX = pageWidth / 2;
   const contentWidth = pageWidth - PAGE_MARGIN * 2;
 
@@ -49,23 +56,32 @@ export function generateMonthlyPdfReport({
   doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, PAGE_MARGIN, 26);
 
   autoTable(doc, {
-    startY: 30,
-    head: [["Data", "Dia", "St", "Ent", "S.Alm", "V.Alm", "Sai", "Obs", "Horas", "Saldo"]],
+    startY: TABLE_START_Y,
+    head: [[
+      "Data",
+      "Dia",
+      "Entrada",
+      "Saída Almoço",
+      "Retorno Almoço",
+      "Saída",
+      "Observação",
+      "Horas",
+      "Saldo",
+    ]],
     body: report.days.map((day) => [
-      formatDateBr(day.date),
+      formatDateBrShort(day.date),
       day.weekday,
-      statusLabel(day.status),
       day.entrada ?? "-",
       day.saida_almoco ?? "-",
       day.volta_almoco ?? "-",
       day.saida_final ?? "-",
-      day.status === "fim_semana" ? "Fim de Semana" : (day.observacao ?? "-"),
+      day.status === "fim_semana" ? weekendDayLabel(day.date) : (day.observacao ?? "-"),
       day.workedMinutes === null ? "-" : formatMinutes(day.workedMinutes),
-      formatMinutes(day.saldoMinutes),
+      formatSignedMinutes(day.saldoMinutes),
     ]),
     styles: {
-      fontSize: 5.7,
-      cellPadding: 0.45,
+      fontSize: 6.8,
+      cellPadding: 0.6,
       valign: "middle",
       overflow: "linebreak",
     },
@@ -75,16 +91,15 @@ export function generateMonthlyPdfReport({
       fontStyle: "bold",
     },
     columnStyles: {
-      0: { cellWidth: 19 },
-      1: { cellWidth: 11 },
+      0: { cellWidth: 13 },
+      1: { cellWidth: 10 },
       2: { cellWidth: 15 },
-      3: { cellWidth: 14 },
-      4: { cellWidth: 14 },
+      3: { cellWidth: 20 },
+      4: { cellWidth: 20 },
       5: { cellWidth: 14 },
-      6: { cellWidth: 14 },
-      7: { cellWidth: 53 },
-      8: { cellWidth: 16 },
-      9: { cellWidth: 16 },
+      6: { cellWidth: 32 },
+      7: { cellWidth: 18, halign: "right", font: "courier" },
+      8: { cellWidth: 18, halign: "right", font: "courier" },
     },
     margin: { top: 30, left: PAGE_MARGIN, right: PAGE_MARGIN, bottom: PAGE_MARGIN },
     tableWidth: contentWidth,
@@ -93,21 +108,111 @@ export function generateMonthlyPdfReport({
   });
 
   const finalY = (doc as jsPDF & { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY;
-  const summaryY = Math.max((finalY ?? 40) + 5, 242);
+  const tableTop = TABLE_START_Y - 2;
+  const tableBottom = (finalY ?? 40) + 2;
+  const tableHeight = tableBottom - tableTop;
+  drawPanel(doc, PAGE_MARGIN - 1, tableTop, contentWidth + 2, tableHeight, false);
 
-  const rightColumnX = pageWidth / 2 + 4;
+  const gapAfterTable = 10;
+  const summaryTitleHeight = 6;
+  const summaryCardsHeight = 24;
+  const summaryBlockHeight = summaryTitleHeight + summaryCardsHeight + 3;
+  const gapBeforeSignature = 12;
+  const signatureBlockHeight = 16;
+  let summaryBlockTop = tableBottom + gapAfterTable;
+
+  if (
+    summaryBlockTop + summaryBlockHeight + gapBeforeSignature + signatureBlockHeight >
+    pageHeight - PAGE_MARGIN
+  ) {
+    doc.addPage();
+    summaryBlockTop = PAGE_MARGIN + 10;
+  }
+
+  drawPanel(
+    doc,
+    PAGE_MARGIN - 1,
+    summaryBlockTop,
+    contentWidth + 2,
+    summaryBlockHeight,
+    false,
+  );
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text("Resumo mensal", centerX, summaryBlockTop + 4.5, { align: "center" });
+  doc.setFont("helvetica", "normal");
+
+  const cardsTop = summaryBlockTop + summaryTitleHeight + 1;
+  const cardsGap = 6;
+  const cardWidth = (contentWidth - cardsGap) / 2;
+  const leftCardX = PAGE_MARGIN;
+  const rightCardX = leftCardX + cardWidth + cardsGap;
+
+  drawPanel(doc, leftCardX, cardsTop, cardWidth, summaryCardsHeight, true);
+  drawPanel(doc, rightCardX, cardsTop, cardWidth, summaryCardsHeight, true);
 
   doc.setFontSize(8);
-  doc.text("Resumo mensal", PAGE_MARGIN, summaryY);
-  doc.text(`Faltas: ${report.summary.faltas}`, PAGE_MARGIN, summaryY + 5);
-  doc.text(`Feriados: ${report.summary.feriados}`, PAGE_MARGIN, summaryY + 10);
-  doc.text(`Dispensas justificadas: ${report.summary.dispensas}`, PAGE_MARGIN, summaryY + 15);
+  doc.text(`Dias trabalhados: ${report.summary.diasTrabalhados}`, leftCardX + 2.5, cardsTop + 5);
+  doc.text(`Faltas: ${report.summary.faltas}`, leftCardX + 2.5, cardsTop + 10);
+  doc.text(`Feriados: ${report.summary.feriados}`, leftCardX + 2.5, cardsTop + 15);
+  doc.text(
+    `Dispensas justificadas: ${report.summary.dispensas}`,
+    leftCardX + 2.5,
+    cardsTop + 20,
+  );
 
-  doc.text(`Horas extras: ${formatMinutes(report.summary.horasExtras)}`, rightColumnX, summaryY + 5);
-  doc.text(`Horas negativas: ${formatMinutes(report.summary.horasNegativas)}`, rightColumnX, summaryY + 10);
-  doc.text(`Balanço final: ${formatMinutes(report.summary.balancoFinal)}`, rightColumnX, summaryY + 15);
+  doc.text(
+    `Horas extras: ${formatMinutes(report.summary.horasExtras)}`,
+    rightCardX + 2.5,
+    cardsTop + 5,
+  );
+  doc.text(
+    `Horas negativas: ${formatMinutes(report.summary.horasNegativas)}`,
+    rightCardX + 2.5,
+    cardsTop + 10,
+  );
+  doc.text(
+    `Balanço final: ${formatSignedMinutes(report.summary.balancoFinal)}`,
+    rightCardX + 2.5,
+    cardsTop + 15,
+  );
+
+  const signatureY = summaryBlockTop + summaryBlockHeight + gapBeforeSignature;
+  const signatureLineWidth = 46;
+  const signatureGap = 10;
+  const signatureTotalWidth = signatureLineWidth * 2 + signatureGap;
+  const leftLineStart = centerX - signatureTotalWidth / 2;
+  const leftLineEnd = leftLineStart + signatureLineWidth;
+  const rightLineStart = leftLineEnd + signatureGap;
+  const rightLineEnd = rightLineStart + signatureLineWidth;
+  const lineY = signatureY;
+
+  doc.line(leftLineStart, lineY, leftLineEnd, lineY);
+  doc.line(rightLineStart, lineY, rightLineEnd, lineY);
+  doc.text("Data", (leftLineStart + leftLineEnd) / 2, lineY + 4, { align: "center" });
+  doc.text("Assinatura da empregada", (rightLineStart + rightLineEnd) / 2, lineY + 4, {
+    align: "center",
+  });
 
   doc.save(`relatorio-ponto-${slugify(empregada)}-${month}.pdf`);
+}
+
+function drawPanel(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  withFill: boolean,
+) {
+  doc.setDrawColor(184, 194, 208);
+  if (withFill) {
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(x, y, width, height, 2, 2, "FD");
+    return;
+  }
+  doc.roundedRect(x, y, width, height, 2, 2, "S");
 }
 
 function monthLabel(month: string) {
@@ -118,9 +223,9 @@ function monthLabel(month: string) {
   return `${label}/${year}`;
 }
 
-function formatDateBr(dateKey: string) {
-  const [year, month, day] = dateKey.split("-").map(Number);
-  return `${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}/${year}`;
+function formatDateBrShort(dateKey: string) {
+  const [, month, day] = dateKey.split("-").map(Number);
+  return `${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}`;
 }
 
 function slugify(value: string) {

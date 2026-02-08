@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
+import Modal from "../components/Modal";
 import {
   fetchAvailableYearMonthsByUser,
   fetchPontoOnlineByUserDate,
@@ -8,7 +9,7 @@ import {
   upsertPontoOnlineToday,
   type PontoOnlineRow,
 } from "../lib/pontoOnline";
-import { formatMinutes } from "../lib/reportRules";
+import { formatMinutes, weekendDayLabel } from "../lib/reportRules";
 
 type Stage = "entrada" | "saida_almoco" | "volta_almoco" | "saida_final";
 
@@ -47,11 +48,13 @@ export default function EmpregadaPage() {
   const [history, setHistory] = useState<PontoOnlineRow[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [availableMonths, setAvailableMonths] = useState<string[]>([currentMonthKey()]);
-  const [pageError, setPageError] = useState<string | null>(null);
+  const [screenError, setScreenError] = useState<string | null>(null);
+  const [historyError, setHistoryError] = useState<string | null>(null);
 
   const [pendingStage, setPendingStage] = useState<Stage | null>(null);
   const [pendingMessage, setPendingMessage] = useState<string>("");
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
 
   const dateKey = useMemo(() => todayDateKey(), []);
   const currentStage = nextStage(todayRow);
@@ -82,10 +85,11 @@ export default function EmpregadaPage() {
     setTodayLoading(false);
 
     if (error) {
-      setPageError(error);
+      setScreenError(error);
       return;
     }
 
+    setScreenError(null);
     setTodayRow(data);
   };
 
@@ -95,10 +99,11 @@ export default function EmpregadaPage() {
     setHistoryLoading(false);
 
     if (error || !data) {
-      setPageError(error ?? "Falha ao carregar histórico.");
+      setHistoryError(error ?? "Falha ao carregar histórico.");
       return;
     }
 
+    setHistoryError(null);
     const previousDays = data.filter((row) => row.data < dateKey);
     setHistory(previousDays);
   };
@@ -107,7 +112,7 @@ export default function EmpregadaPage() {
     if (!user?.id) return;
 
     const init = async () => {
-      setPageError(null);
+      setScreenError(null);
 
       const profileResult = await fetchProfileNameById(user.id);
       if (!profileResult.error && profileResult.nome) {
@@ -116,7 +121,7 @@ export default function EmpregadaPage() {
 
       const availableResult = await fetchAvailableYearMonthsByUser(user.id);
       if (availableResult.error) {
-        setPageError(availableResult.error);
+        setScreenError(availableResult.error);
       } else if (availableResult.months.length > 0) {
         setAvailableMonths(availableResult.months);
         if (!availableResult.months.includes(month)) {
@@ -201,6 +206,11 @@ export default function EmpregadaPage() {
       <section className="panel">
         <h2>{weekdayTitle(dateKey)}</h2>
         <p className="muted">{displayDate(dateKey)}</p>
+        {screenError ? (
+          <p className="error-text" role="alert" aria-live="assertive">
+            {screenError}
+          </p>
+        ) : null}
 
         <div className="punch-grid">
           {STAGES.map((stage, index) => {
@@ -315,12 +325,12 @@ export default function EmpregadaPage() {
           </div>
 
           {historyLoading ? <p className="muted">Carregando histórico...</p> : null}
-          {pageError ? (
+          {historyError ? (
             <p className="error-text" role="alert" aria-live="assertive">
-              {pageError}
+              {historyError}
             </p>
           ) : null}
-          {!historyLoading && !pageError && history.length === 0 ? (
+          {!historyLoading && !historyError && history.length === 0 ? (
             <p className="muted">Sem registros para o período selecionado.</p>
           ) : null}
 
@@ -346,7 +356,9 @@ export default function EmpregadaPage() {
                     <td data-label="Volta Almoço">{row.volta_almoco ?? "-"}</td>
                     <td data-label="Saída Final">{row.saida_final ?? "-"}</td>
                     <td data-label="Saldo">{dayBalanceLabel(row)}</td>
-                    <td data-label="Observação">{row.observacao ?? "-"}</td>
+                    <td data-label="Observação">
+                      {row.observacao ?? (isWeekendDate(row.data) ? weekendDayLabel(row.data) : "-")}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -358,13 +370,27 @@ export default function EmpregadaPage() {
       <section className="panel">
         <button
           type="button"
-          className="button-muted button-full"
-          onClick={signOut}
+          className="button-exit button-full"
+          onClick={() => setShowSignOutConfirm(true)}
           disabled={loading}
         >
           {loading ? "Saindo..." : "Sair"}
         </button>
       </section>
+
+      {showSignOutConfirm ? (
+        <Modal
+          title="Encerrar sessão"
+          message="Deseja sair da sua conta agora?"
+          confirmLabel="Sair"
+          cancelLabel="Cancelar"
+          onConfirm={() => {
+            setShowSignOutConfirm(false);
+            void signOut();
+          }}
+          onClose={() => setShowSignOutConfirm(false)}
+        />
+      ) : null}
     </main>
   );
 }
@@ -516,6 +542,12 @@ function weekdayTitle(dateKey: string) {
 
 function shortTime(value: string) {
   return value.slice(0, 5);
+}
+
+function isWeekendDate(dateKey: string) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const weekday = new Date(year, month - 1, day).getDay();
+  return weekday === 0 || weekday === 6;
 }
 
 function isRightOfCurrent(index: number, currentStage: Stage | null) {
