@@ -29,7 +29,7 @@ const MONTH_NAMES = [
 ];
 
 const PAGE_MARGIN = 12;
-const TABLE_START_Y = 30;
+const TABLE_START_Y = 37;
 const TABLE_PANEL_PADDING_X = 2;
 const TABLE_CONTENT_WIDTH = 160;
 
@@ -58,10 +58,13 @@ export function generateMonthlyPdfReport({
   doc.text("Relatório Mensal de Ponto", centerX, 12, { align: "center" });
   doc.setFont("helvetica", "normal");
 
+  const infoBlockY = 18;
+  const infoBlockHeight = 13;
+  drawPanel(doc, tablePanelX, infoBlockY, tablePanelWidth, infoBlockHeight, true);
   doc.setFontSize(8);
-  doc.text(`Empregada: ${empregada}`, PAGE_MARGIN, 18);
-  doc.text(`Período: ${monthLabel(month)}`, PAGE_MARGIN, 22);
-  doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, PAGE_MARGIN, 26);
+  doc.text(`Funcionário: ${empregada}`, tableMarginLeft + 2.5, infoBlockY + 4);
+  doc.text(`Período: ${monthLabel(month)}`, tableMarginLeft + 2.5, infoBlockY + 8);
+  doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, tableMarginLeft + 2.5, infoBlockY + 12);
 
   autoTable(doc, {
     startY: TABLE_START_Y,
@@ -130,7 +133,7 @@ export function generateMonthlyPdfReport({
   const summaryTitleHeight = 6;
   const summaryCardsHeight = 24;
   const summaryBlockHeight = summaryTitleHeight + summaryCardsHeight + 3;
-  const gapBeforeSignature = 12;
+  const gapBeforeSignature = 10;
   const signatureBlockHeight = 16;
   let summaryBlockTop = tableBottom + gapAfterTable;
 
@@ -204,7 +207,7 @@ export function generateMonthlyPdfReport({
   doc.line(leftLineStart, lineY, leftLineEnd, lineY);
   doc.line(rightLineStart, lineY, rightLineEnd, lineY);
   doc.text("Data", (leftLineStart + leftLineEnd) / 2, lineY + 4, { align: "center" });
-  doc.text("Assinatura da empregada", (rightLineStart + rightLineEnd) / 2, lineY + 4, {
+  doc.text("Assinatura do Funcionário", (rightLineStart + rightLineEnd) / 2, lineY + 4, {
     align: "center",
   });
 
