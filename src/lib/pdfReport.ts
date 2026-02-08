@@ -30,6 +30,8 @@ const MONTH_NAMES = [
 
 const PAGE_MARGIN = 12;
 const TABLE_START_Y = 30;
+const TABLE_PANEL_PADDING_X = 2;
+const TABLE_CONTENT_WIDTH = 160;
 
 export function generateMonthlyPdfReport({
   report,
@@ -45,10 +47,16 @@ export function generateMonthlyPdfReport({
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const centerX = pageWidth / 2;
-  const contentWidth = pageWidth - PAGE_MARGIN * 2;
+  const tableMarginLeft = (pageWidth - TABLE_CONTENT_WIDTH) / 2;
+  const tableMarginRight = tableMarginLeft;
+  const tablePanelX = tableMarginLeft - TABLE_PANEL_PADDING_X;
+  const tablePanelWidth = TABLE_CONTENT_WIDTH + TABLE_PANEL_PADDING_X * 2;
+  const contentWidth = tablePanelWidth - TABLE_PANEL_PADDING_X * 2;
 
+  doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   doc.text("Relatório Mensal de Ponto", centerX, 12, { align: "center" });
+  doc.setFont("helvetica", "normal");
 
   doc.setFontSize(8);
   doc.text(`Empregada: ${empregada}`, PAGE_MARGIN, 18);
@@ -101,8 +109,13 @@ export function generateMonthlyPdfReport({
       7: { cellWidth: 18, halign: "right", font: "courier" },
       8: { cellWidth: 18, halign: "right", font: "courier" },
     },
-    margin: { top: 30, left: PAGE_MARGIN, right: PAGE_MARGIN, bottom: PAGE_MARGIN },
-    tableWidth: contentWidth,
+    margin: {
+      top: TABLE_START_Y,
+      left: tableMarginLeft,
+      right: tableMarginRight,
+      bottom: PAGE_MARGIN,
+    },
+    tableWidth: TABLE_CONTENT_WIDTH,
     pageBreak: "avoid",
     rowPageBreak: "avoid",
   });
@@ -111,7 +124,7 @@ export function generateMonthlyPdfReport({
   const tableTop = TABLE_START_Y - 2;
   const tableBottom = (finalY ?? 40) + 2;
   const tableHeight = tableBottom - tableTop;
-  drawPanel(doc, PAGE_MARGIN - 1, tableTop, contentWidth + 2, tableHeight, false);
+  drawPanel(doc, tablePanelX, tableTop, tablePanelWidth, tableHeight, false);
 
   const gapAfterTable = 10;
   const summaryTitleHeight = 6;
@@ -131,9 +144,9 @@ export function generateMonthlyPdfReport({
 
   drawPanel(
     doc,
-    PAGE_MARGIN - 1,
+    tablePanelX,
     summaryBlockTop,
-    contentWidth + 2,
+    tablePanelWidth,
     summaryBlockHeight,
     false,
   );
@@ -146,7 +159,7 @@ export function generateMonthlyPdfReport({
   const cardsTop = summaryBlockTop + summaryTitleHeight + 1;
   const cardsGap = 6;
   const cardWidth = (contentWidth - cardsGap) / 2;
-  const leftCardX = PAGE_MARGIN;
+  const leftCardX = tableMarginLeft;
   const rightCardX = leftCardX + cardWidth + cardsGap;
 
   drawPanel(doc, leftCardX, cardsTop, cardWidth, summaryCardsHeight, true);
