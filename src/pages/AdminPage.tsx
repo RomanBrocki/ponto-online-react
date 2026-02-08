@@ -58,7 +58,7 @@ export default function AdminPage() {
   const [modalState, setModalState] = useState<ModalState | null>(null);
   const [showEditList, setShowEditList] = useState(false);
   const [showReportPreview, setShowReportPreview] = useState(false);
-  const [viewMode, setViewMode] = useState<AdminViewMode>("records");
+  const [viewMode, setViewMode] = useState<AdminViewMode | null>(null);
   const monthParts = splitMonth(month);
   const adminDisplayName = formatPersonName(
     extractNameFromEmail(user?.email) || user?.email || user?.id || "Admin",
@@ -339,16 +339,12 @@ export default function AdminPage() {
     }
   };
 
+  const toggleViewMode = (nextMode: AdminViewMode) => {
+    setViewMode((previous) => (previous === nextMode ? null : nextMode));
+  };
+
   return (
     <main className="page page-admin">
-      <section className="panel page-intro">
-        <h1 className="page-intro-title">
-          Controle de Ponto
-          <br />
-          On-line
-        </h1>
-      </section>
-
       <header className="panel page-header">
         <p>Olá, {adminDisplayName}!</p>
         <p className="muted">Perfil de acesso: Empregador</p>
@@ -360,18 +356,23 @@ export default function AdminPage() {
           <button
             type="button"
             className={viewMode === "records" ? "" : "button-muted"}
-            onClick={() => setViewMode("records")}
+            onClick={() => toggleViewMode("records")}
           >
-            Editar/Consultar registros
+            {viewMode === "records"
+              ? "Ocultar editar/consultar registros"
+              : "Editar/Consultar registros"}
           </button>
           <button
             type="button"
             className={viewMode === "report" ? "" : "button-muted"}
-            onClick={() => setViewMode("report")}
+            onClick={() => toggleViewMode("report")}
           >
-            Relatórios
+            {viewMode === "report" ? "Ocultar relatórios" : "Relatórios"}
           </button>
         </div>
+        {!viewMode ? (
+          <p className="muted">Selecione uma ação para abrir o conteúdo.</p>
+        ) : null}
       </section>
 
       {viewMode === "records" ? (

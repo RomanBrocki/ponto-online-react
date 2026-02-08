@@ -99,21 +99,32 @@ npm run preview
 
 ### Login (`/login`)
 
-Possui 3 modos:
+Fluxo principal de login com visual limpo:
 
-1. `Entrar`
-2. `Alterar senha` (email + senha antiga + nova + confirmação)
-3. `Esqueci minha senha` (envio de link de recuperação)
+1. Campos `email` + `senha`
+2. Botão principal `Entrar`
+3. Abaixo do botão, links discretos para:
+   - `Alterar senha` (email + senha atual + nova + confirmação)
+   - `Esqueci minha senha` (envio de link de recuperação)
+
+A tela alterna o contexto sem sair da rota (`/login`), ajustando título e campos conforme a ação selecionada.
 
 ### Painel Empregada (`/empregada`)
 
 - Bloco de marcação do dia com cartões de status.
 - Botão principal executa a próxima etapa válida da sequência.
-- Histórico do mês inicia colapsado e pode ser expandido.
+- Histórico do mês é exibido sob demanda com toggle `Exibir histórico` / `Ocultar histórico`.
 
 ### Painel Admin (`/admin`)
 
-Dois modos:
+Tela inicial limpa com blocos essenciais:
+
+1. `Olá` (contexto do usuário)
+2. `Ações`
+3. `Diagnóstico DB`
+4. `Sair`
+
+No bloco `Ações`, os conteúdos são abertos sob demanda (toggle):
 
 1. `Editar/Consultar registros`
    - filtros: Empregada > Ano > Mês > Dia
@@ -123,6 +134,8 @@ Dois modos:
    - filtros: Empregada > Ano > Mês
    - validação de pendências antes de gerar PDF
    - prévia colapsável
+
+Clicar novamente na ação ativa recolhe o conteúdo.
 
 ## 9. Estrutura de arquivos (árvore completa)
 
@@ -287,7 +300,8 @@ Sem isso, recuperação/fluxos de senha podem falhar.
 
 - Login, alteração e recuperação de senha
 - Controle de ponto sequencial da empregada
-- Histórico mensal colapsável
+- Histórico mensal sob demanda (toggle)
+- Admin com ações expansíveis/recolhíveis
 - Edição/admin com filtro opcional por dia
 - Relatório mensal com validação e PDF
 - PWA com service worker

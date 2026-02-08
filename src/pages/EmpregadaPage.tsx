@@ -253,12 +253,21 @@ export default function EmpregadaPage() {
         {feedbackMessage ? (
           <p className={isErrorFeedback ? "error-text" : "success-text"}>{feedbackMessage}</p>
         ) : null}
+
+        <button
+          type="button"
+          className="button-muted collapse-toggle history-toggle"
+          onClick={() => setShowHistory((previous) => !previous)}
+        >
+          {showHistory ? "Ocultar histórico" : "Exibir histórico"}
+        </button>
       </section>
 
-      <section className="panel">
-        <h2>Histórico (dias anteriores)</h2>
-        <div className="form-grid report-grid">
-          <label htmlFor="ano-empregada">Ano</label>
+      {showHistory ? (
+        <section className="panel">
+          <h2>Histórico (dias anteriores)</h2>
+          <div className="form-grid report-grid">
+            <label htmlFor="ano-empregada">Ano</label>
           <select
             id="ano-empregada"
             value={String(monthParts.year)}
@@ -295,20 +304,12 @@ export default function EmpregadaPage() {
                 {option.label}
               </option>
             ))}
-          </select>
-        </div>
-        <button
-          type="button"
-          className="button-muted collapse-toggle"
-          onClick={() => setShowHistory((previous) => !previous)}
-        >
-          {showHistory ? "Clique aqui para recolher" : "Clique aqui para expandir"}
-        </button>
+            </select>
+          </div>
 
-        {historyLoading ? <p className="muted">Carregando histórico...</p> : null}
-        {pageError ? <p className="error-text">{pageError}</p> : null}
+          {historyLoading ? <p className="muted">Carregando histórico...</p> : null}
+          {pageError ? <p className="error-text">{pageError}</p> : null}
 
-        {showHistory ? (
           <div className="report-table-wrap">
             <table className="report-table stack-mobile">
               <thead>
@@ -337,8 +338,8 @@ export default function EmpregadaPage() {
               </tbody>
             </table>
           </div>
-        ) : null}
-      </section>
+        </section>
+      ) : null}
 
       <section className="panel">
         <button

@@ -47,6 +47,20 @@ export default function LoginPage() {
     resetMessages();
   };
 
+  const modeTitle =
+    mode === "sign_in"
+      ? "Ponto Online"
+      : mode === "change_password"
+        ? "Alterar senha"
+        : "Recuperar senha";
+
+  const modeDescription =
+    mode === "sign_in"
+      ? "Entre com seu email e senha."
+      : mode === "change_password"
+        ? "Informe email, senha atual e a nova senha."
+        : "Informe seu email para receber o link de recuperação.";
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     resetMessages();
@@ -71,9 +85,7 @@ export default function LoginPage() {
         setErrorMessage(error);
         return;
       }
-      setSuccessMessage(
-        "Se o email existir, enviamos um link para redefinir a senha.",
-      );
+      setSuccessMessage("Se o email existir, enviamos um link para redefinir a senha.");
       return;
     }
 
@@ -114,38 +126,8 @@ export default function LoginPage() {
   return (
     <main className="page-center">
       <section className="panel auth-panel">
-        <h1>Ponto Online</h1>
-        <p className="muted">
-          {mode === "sign_in"
-            ? "Entre com seu email e senha."
-            : mode === "change_password"
-              ? "Altere sua senha com email e senha antiga."
-              : "Receba por email o link de recuperação de senha."}
-        </p>
-
-        <div className="form-grid report-grid">
-          <button
-            type="button"
-            className={mode === "sign_in" ? "" : "button-muted"}
-            onClick={() => switchMode("sign_in")}
-          >
-            Entrar
-          </button>
-          <button
-            type="button"
-            className={mode === "change_password" ? "" : "button-muted"}
-            onClick={() => switchMode("change_password")}
-          >
-            Alterar senha
-          </button>
-          <button
-            type="button"
-            className={mode === "reset_password" ? "" : "button-muted"}
-            onClick={() => switchMode("reset_password")}
-          >
-            Esqueci minha senha
-          </button>
-        </div>
+        <h1>{modeTitle}</h1>
+        <p className="muted">{modeDescription}</p>
 
         <form className="form-grid" onSubmit={handleSubmit}>
           <label htmlFor="email">Email</label>
@@ -176,7 +158,7 @@ export default function LoginPage() {
 
           {mode === "change_password" ? (
             <>
-              <label htmlFor="current-password">Senha antiga</label>
+              <label htmlFor="current-password">Senha atual</label>
               <input
                 id="current-password"
                 name="current-password"
@@ -220,6 +202,38 @@ export default function LoginPage() {
                   ? "Atualizar senha"
                   : "Enviar link"}
           </button>
+
+          <div className="auth-mode-links">
+            {mode !== "change_password" ? (
+              <button
+                type="button"
+                className="auth-text-link"
+                onClick={() => switchMode("change_password")}
+              >
+                Alterar senha
+              </button>
+            ) : null}
+
+            {mode !== "reset_password" ? (
+              <button
+                type="button"
+                className="auth-text-link"
+                onClick={() => switchMode("reset_password")}
+              >
+                Esqueci minha senha
+              </button>
+            ) : null}
+
+            {mode !== "sign_in" ? (
+              <button
+                type="button"
+                className="auth-text-link"
+                onClick={() => switchMode("sign_in")}
+              >
+                Voltar para entrar
+              </button>
+            ) : null}
+          </div>
         </form>
 
         {errorMessage ? <p className="error-text">{errorMessage}</p> : null}
