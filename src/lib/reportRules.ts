@@ -1,4 +1,4 @@
-import type { PontoOnlineRow } from "./pontoOnline";
+﻿import type { PontoOnlineRow } from "./pontoOnline";
 
 const DAILY_TARGET_MINUTES = 8 * 60;
 
@@ -52,8 +52,9 @@ export function buildMonthlyReportValidation(
     const row = rowByDate.get(date);
     const weekday = weekdayLabel(date);
     const weekend = isWeekend(date);
+    const obs = normalizeObservacao(row?.observacao ?? null);
 
-    if (weekend) {
+    if (weekend && (!row || obs === "fim_semana")) {
       resultDays.push({
         date,
         weekday,
@@ -62,7 +63,7 @@ export function buildMonthlyReportValidation(
         saida_almoco: row?.saida_almoco ?? null,
         volta_almoco: row?.volta_almoco ?? null,
         saida_final: row?.saida_final ?? null,
-        observacao: row?.observacao ?? null,
+        observacao: row?.observacao ?? weekendDayLabel(date),
         workedMinutes: null,
         saldoMinutes: 0,
       });
@@ -76,7 +77,6 @@ export function buildMonthlyReportValidation(
     }
 
     const worked = calculateWorkedMinutes(row);
-    const obs = normalizeObservacao(row.observacao);
 
     if (obs === "feriado") {
       resultDays.push({
@@ -191,7 +191,7 @@ export function statusLabel(status: DayStatus) {
 export function weekendDayLabel(dateKey: string) {
   const [year, month, day] = dateKey.split("-").map(Number);
   const weekday = new Date(year, month - 1, day).getDay();
-  return weekday === 6 ? "Sábado" : "Domingo";
+  return weekday === 6 ? "Sabado" : "Domingo";
 }
 
 function buildSummary(days: DayReportRow[]): ReportSummary {
@@ -251,7 +251,7 @@ function emptyPendingDay(
     saida_almoco: row?.saida_almoco ?? null,
     volta_almoco: row?.volta_almoco ?? null,
     saida_final: row?.saida_final ?? null,
-    observacao: row?.observacao ?? null,
+    observacao: row?.observacao ?? weekendDayLabel(date),
     workedMinutes: null,
     saldoMinutes: 0,
   };
@@ -304,6 +304,7 @@ function normalizeObservacao(observacao: string | null) {
   if (normalized === "feriado") return "feriado";
   if (normalized === "dispensa justificada") return "dispensa_justificada";
   if (normalized === "falta") return "falta";
+  if (normalized === "sabado" || normalized === "domingo") return "fim_semana";
   return null;
 }
 
@@ -334,3 +335,6 @@ function buildMonthDays(month: string) {
   }
   return days;
 }
+
+
+

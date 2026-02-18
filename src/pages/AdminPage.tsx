@@ -6,6 +6,7 @@ import {
   deletePontoOnlineById,
   fetchAvailableYearMonthsAdmin,
   fetchPontoOnlineAdminByMonth,
+  upsertPontoOnlineAdminByDate,
   updatePontoOnlineById,
   type PontoOnlineRow,
 } from "../lib/pontoOnline";
@@ -27,7 +28,7 @@ type AdminDraft = {
 };
 
 type AdminGridRow = PontoOnlineRow & {
-  virtualWeekend?: boolean;
+  virtualDay?: boolean;
 };
 
 type ModalState = {
@@ -145,25 +146,24 @@ export default function AdminPage() {
         (row) => normalizeEmpregadaKey(row.empregado) === selectedEmpregada,
       );
       const byDate = new Map(selectedRows.map((row) => [row.data, row]));
-      const weekends = buildMonthDays(month)
-        .filter(isWeekendDate)
+      const virtualDays = buildMonthDays(month)
         .filter((date) => date <= todayKey)
         .filter((date) => !byDate.has(date))
         .map<AdminGridRow>((date) => ({
-          id: `virtual-weekend-${selectedEmpregada}-${date}`,
+          id: `virtual-day-${selectedEmpregada}-${date}`,
           data: date,
           empregado: selectedEmpregadaLabel(selectedEmpregada, uniqueEmpregadas),
           entrada: null,
           saida_almoco: null,
           volta_almoco: null,
           saida_final: null,
-          observacao: weekendDayLabel(date),
+          observacao: isWeekendDate(date) ? weekendDayLabel(date) : null,
           inserido_em: null,
           user_id: null,
-          virtualWeekend: true,
+          virtualDay: true,
         }));
 
-      rows = [...selectedRows, ...weekends].sort((a, b) => b.data.localeCompare(a.data));
+      rows = [...selectedRows, ...virtualDays].sort((a, b) => b.data.localeCompare(a.data));
     }
 
     if (isCurrentViewingMonth) {
@@ -273,21 +273,29 @@ export default function AdminPage() {
     }));
   };
 
-  const handleSaveRow = async (row: PontoOnlineRow) => {
-    if ((row as AdminGridRow).virtualWeekend) return;
+  const handleSaveRow = async (row: AdminGridRow) => {
     if (savingRowIds[row.id]) return;
-    const draft = drafts[row.id];
+    const draft =
+      drafts[row.id] ??
+      (isWeekendDate(row.data) ? createDefaultDraft(row) : undefined);
     if (!draft) return;
     setSavingRowIds((previous) => ({ ...previous, [row.id]: true }));
     const startedAt = Date.now();
 
-    const { error } = await updatePontoOnlineById(row.id, {
+    const payload = {
       entrada: draft.entrada || null,
       saida_almoco: draft.saida_almoco || null,
       volta_almoco: draft.volta_almoco || null,
       saida_final: draft.saida_final || null,
       observacao: draft.observacao || null,
-    });
+    };
+    const { error } = row.virtualDay
+      ? await upsertPontoOnlineAdminByDate({
+          dateKey: row.data,
+          empregado: row.empregado,
+          payload,
+        })
+      : await updatePontoOnlineById(row.id, payload);
     await waitRemaining(startedAt, UX_MIN_LOADING_MS);
     setSavingRowIds((previous) => {
       const next = { ...previous };
@@ -310,8 +318,8 @@ export default function AdminPage() {
     await handleLoadRecords();
   };
 
-  const askDeleteRow = (row: PontoOnlineRow) => {
-    if ((row as AdminGridRow).virtualWeekend) return;
+  const askDeleteRow = (row: AdminGridRow) => {
+    if (row.virtualDay) return;
     setModalState({
       title: "Apagar registro",
       message: `Confirma apagar a linha de ${row.data} (${row.empregado})? Essa ação remove o registro do dia.`,
@@ -555,9 +563,11 @@ export default function AdminPage() {
                 </thead>
                 <tbody>
                   {visibleRecords.map((row) => {
-                    const draft = drafts[row.id];
-                    const weekend = isWeekendDate(row.data);
+                    const draft =
+                      drafts[row.id] ??
+                      (isWeekendDate(row.data) ? createDefaultDraft(row) : undefined);
                     const isSavingRow = Boolean(savingRowIds[row.id]);
+                    const observacaoOptions = getObservacaoOptions(row.data, draft?.observacao ?? "");
                     return (
                       <tr key={row.id}>
                         <td data-label="Data">{row.data}</td>
@@ -566,7 +576,7 @@ export default function AdminPage() {
                           <input
                             type="time"
                             value={draft?.entrada ?? ""}
-                            disabled={recordsLoading || isVirtualWeekendRow(row)}
+                            disabled={recordsLoading}
                             onChange={(event) =>
                               handleDraftChange(row.id, "entrada", event.target.value)
                             }
@@ -576,7 +586,7 @@ export default function AdminPage() {
                           <input
                             type="time"
                             value={draft?.saida_almoco ?? ""}
-                            disabled={recordsLoading || isVirtualWeekendRow(row)}
+                            disabled={recordsLoading}
                             onChange={(event) =>
                               handleDraftChange(row.id, "saida_almoco", event.target.value)
                             }
@@ -586,7 +596,7 @@ export default function AdminPage() {
                           <input
                             type="time"
                             value={draft?.volta_almoco ?? ""}
-                            disabled={recordsLoading || isVirtualWeekendRow(row)}
+                            disabled={recordsLoading}
                             onChange={(event) =>
                               handleDraftChange(row.id, "volta_almoco", event.target.value)
                             }
@@ -596,36 +606,33 @@ export default function AdminPage() {
                           <input
                             type="time"
                             value={draft?.saida_final ?? ""}
-                            disabled={recordsLoading || isVirtualWeekendRow(row)}
+                            disabled={recordsLoading}
                             onChange={(event) =>
                               handleDraftChange(row.id, "saida_final", event.target.value)
                             }
                           />
                         </td>
                         <td data-label="Observação">
-                          {weekend ? (
-                            <span className="muted">{weekendDayLabel(row.data)}</span>
-                          ) : (
-                            <select
-                              value={draft?.observacao ?? ""}
-                              disabled={recordsLoading}
-                              onChange={(event) =>
-                                handleDraftChange(row.id, "observacao", event.target.value)
-                              }
-                            >
-                              {OBS_OPTIONS.map((option) => (
-                                <option key={option || "vazio"} value={option}>
-                                  {option || "-"}
-                                </option>
-                              ))}
-                            </select>
-                          )}
+                          <select
+                            className="observacao-select"
+                            value={draft?.observacao ?? ""}
+                            disabled={recordsLoading}
+                            onChange={(event) =>
+                              handleDraftChange(row.id, "observacao", event.target.value)
+                            }
+                          >
+                            {observacaoOptions.map((option) => (
+                              <option key={option || "vazio"} value={option}>
+                                {option || "-"}
+                              </option>
+                            ))}
+                          </select>
                         </td>
                         <td data-label="Salvar">
                           <button
                             type="button"
                             onClick={() => void handleSaveRow(row)}
-                            disabled={recordsLoading || isSavingRow || isVirtualWeekendRow(row)}
+                            disabled={recordsLoading || isSavingRow}
                           >
                             {isSavingRow ? "Salvando..." : "Salvar"}
                           </button>
@@ -634,7 +641,7 @@ export default function AdminPage() {
                           <button
                             type="button"
                             className="button-danger"
-                            disabled={recordsLoading || isSavingRow || isVirtualWeekendRow(row)}
+                            disabled={recordsLoading || isSavingRow || row.virtualDay}
                             onClick={() => askDeleteRow(row)}
                           >
                             Apagar
@@ -852,15 +859,38 @@ function formatDayOptionLabel(dateKey: string) {
 
 function createDrafts(rows: PontoOnlineRow[]) {
   return rows.reduce<Record<string, AdminDraft>>((acc, row) => {
-    acc[row.id] = {
-      entrada: row.entrada ?? "",
-      saida_almoco: row.saida_almoco ?? "",
-      volta_almoco: row.volta_almoco ?? "",
-      saida_final: row.saida_final ?? "",
-      observacao: normalizeObservacaoToOption(row.observacao),
-    };
+    acc[row.id] = createDefaultDraft(row);
     return acc;
   }, {});
+}
+
+function createDefaultDraft(row: Pick<PontoOnlineRow, "data" | "entrada" | "saida_almoco" | "volta_almoco" | "saida_final" | "observacao">): AdminDraft {
+  const fallbackWeekendObs = isWeekendDate(row.data) ? weekendDayLabel(row.data) : "";
+  const normalizedObs = normalizeObservacaoToOption(row.observacao);
+  return {
+    entrada: row.entrada ?? "",
+    saida_almoco: row.saida_almoco ?? "",
+    volta_almoco: row.volta_almoco ?? "",
+    saida_final: row.saida_final ?? "",
+    observacao: normalizedObs || fallbackWeekendObs,
+  };
+}
+
+function getObservacaoOptions(dateKey: string, currentValue: string) {
+  if (isWeekendDate(dateKey)) {
+    const weekendLabel = weekendDayLabel(dateKey);
+    const options = ["", weekendLabel];
+    if (currentValue && !options.includes(currentValue)) {
+      options.push(currentValue);
+    }
+    return options;
+  }
+
+  if (currentValue && !OBS_OPTIONS.includes(currentValue)) {
+    return [...OBS_OPTIONS, currentValue];
+  }
+
+  return OBS_OPTIONS;
 }
 
 function normalizeObservacaoToOption(observacao: string | null) {
@@ -875,6 +905,8 @@ function normalizeObservacaoToOption(observacao: string | null) {
   if (normalized === "feriado") return "Feriado";
   if (normalized === "dispensa justificada") return "Dispensa Justificada";
   if (normalized === "falta") return "Falta";
+  if (normalized === "sabado") return "Sabado";
+  if (normalized === "domingo") return "Domingo";
   return observacao;
 }
 
@@ -897,10 +929,6 @@ function isWeekendDate(dateKey: string) {
   const [year, month, day] = dateKey.split("-").map(Number);
   const weekday = new Date(year, month - 1, day).getDay();
   return weekday === 0 || weekday === 6;
-}
-
-function isVirtualWeekendRow(row: PontoOnlineRow | AdminGridRow) {
-  return Boolean((row as AdminGridRow).virtualWeekend);
 }
 
 function splitMonth(monthKey: string) {

@@ -138,6 +138,46 @@ export async function updatePontoOnlineById(
   return { error: error ? error.message : null };
 }
 
+export async function upsertPontoOnlineAdminByDate(
+  params: {
+    dateKey: string;
+    empregado: string;
+    payload: Partial<
+      Pick<
+        PontoOnlineRow,
+        "entrada" | "saida_almoco" | "volta_almoco" | "saida_final" | "observacao"
+      >
+    >;
+  },
+): Promise<{ error: string | null }> {
+  const { data: existing, error: selectError } = await supabase
+    .from("ponto_online")
+    .select("id")
+    .eq("data", params.dateKey)
+    .eq("empregado", params.empregado)
+    .maybeSingle();
+
+  if (selectError) {
+    return { error: selectError.message };
+  }
+
+  if (existing?.id) {
+    const { error } = await supabase
+      .from("ponto_online")
+      .update(params.payload)
+      .eq("id", existing.id);
+    return { error: error ? error.message : null };
+  }
+
+  const { error } = await supabase.from("ponto_online").insert({
+    data: params.dateKey,
+    empregado: params.empregado,
+    inserido_em: new Date().toISOString(),
+    ...params.payload,
+  });
+  return { error: error ? error.message : null };
+}
+
 export async function deletePontoOnlineById(
   id: string,
 ): Promise<{ error: string | null }> {

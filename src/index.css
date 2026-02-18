@@ -407,6 +407,11 @@ p {
   font-variant-numeric: tabular-nums;
 }
 
+.admin-table .observacao-select {
+  width: 12rem;
+  min-width: 12rem;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -538,6 +543,11 @@ p {
   .stack-mobile td input,
   .stack-mobile td select,
   .stack-mobile td button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .admin-table .observacao-select {
     width: 100%;
     min-width: 0;
   }
